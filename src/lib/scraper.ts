@@ -408,66 +408,30 @@ function parseActressItems($: cheerio.CheerioAPI): ActressItem[] {
 }
 
 // ============================================================
-// ACTRESSES: List all actresses (paginated across all pages)
+// ACTRESSES: List actresses (paginated, one page at a time)
 // ============================================================
-export async function getActresses(): Promise<{
+export async function getActresses(
+  page = 1
+): Promise<{
   source: string;
   totalActresses: number;
   actresses: ActressItem[];
+  page: number;
+  totalPages: number;
 }> {
-  // Fetch page 1 to discover total pages
-  const { data: data1 } = await client.get("/actresses");
-  const $1 = cheerio.load(data1);
+  const url = page > 1 ? `/actresses?page=${page}` : "/actresses";
+  const { data } = await client.get(url);
+  const $ = cheerio.load(data);
 
-  const maxPage = parseListMaxPage($1);
-
-  // Use Map for O(1) deduplication by slug
-  const actressMap = new Map<string, ActressItem>();
-  for (const item of parseActressItems($1)) {
-    if (!actressMap.has(item.slug)) {
-      actressMap.set(item.slug, item);
-    }
-  }
-
-  // Fetch remaining pages in parallel batches
-  if (maxPage > 1) {
-    const BATCH_SIZE = 30;
-    for (let start = 2; start <= maxPage; start += BATCH_SIZE) {
-      const end = Math.min(start + BATCH_SIZE - 1, maxPage);
-      const pages = Array.from(
-        { length: end - start + 1 },
-        (_v, i) => start + i
-      );
-
-      const results = await Promise.all(
-        pages.map((page) =>
-          client.get(`/actresses?page=${page}`).catch((err) => {
-            console.warn(
-              `[getActresses] page ${page} failed:`,
-              err instanceof Error ? err.message : String(err)
-            );
-            return null;
-          })
-        )
-      );
-
-      for (const res of results) {
-        if (res) {
-          const $ = cheerio.load(res.data);
-          for (const item of parseActressItems($)) {
-            if (!actressMap.has(item.slug)) {
-              actressMap.set(item.slug, item);
-            }
-          }
-        }
-      }
-    }
-  }
+  const actresses = parseActressItems($);
+  const totalPages = parseListMaxPage($);
 
   return {
     source: "actresses",
-    totalActresses: actressMap.size,
-    actresses: Array.from(actressMap.values()),
+    totalActresses: actresses.length,
+    actresses,
+    page,
+    totalPages,
   };
 }
 
@@ -524,66 +488,30 @@ function parseChannelItems($: cheerio.CheerioAPI): ChannelItem[] {
 }
 
 // ============================================================
-// CHANNELS: List all channels (paginated across all pages)
+// CHANNELS: List channels (paginated, one page at a time)
 // ============================================================
-export async function getChannels(): Promise<{
+export async function getChannels(
+  page = 1
+): Promise<{
   source: string;
   totalChannels: number;
   channels: ChannelItem[];
+  page: number;
+  totalPages: number;
 }> {
-  // Fetch page 1 to discover total pages
-  const { data: data1 } = await client.get("/channels");
-  const $1 = cheerio.load(data1);
+  const url = page > 1 ? `/channels?page=${page}` : "/channels";
+  const { data } = await client.get(url);
+  const $ = cheerio.load(data);
 
-  const maxPage = parseListMaxPage($1);
-
-  // Use Map for O(1) deduplication by slug
-  const channelMap = new Map<string, ChannelItem>();
-  for (const item of parseChannelItems($1)) {
-    if (!channelMap.has(item.slug)) {
-      channelMap.set(item.slug, item);
-    }
-  }
-
-  // Fetch remaining pages in parallel batches
-  if (maxPage > 1) {
-    const BATCH_SIZE = 30;
-    for (let start = 2; start <= maxPage; start += BATCH_SIZE) {
-      const end = Math.min(start + BATCH_SIZE - 1, maxPage);
-      const pages = Array.from(
-        { length: end - start + 1 },
-        (_v, i) => start + i
-      );
-
-      const results = await Promise.all(
-        pages.map((page) =>
-          client.get(`/channels?page=${page}`).catch((err) => {
-            console.warn(
-              `[getChannels] page ${page} failed:`,
-              err instanceof Error ? err.message : String(err)
-            );
-            return null;
-          })
-        )
-      );
-
-      for (const res of results) {
-        if (res) {
-          const $ = cheerio.load(res.data);
-          for (const item of parseChannelItems($)) {
-            if (!channelMap.has(item.slug)) {
-              channelMap.set(item.slug, item);
-            }
-          }
-        }
-      }
-    }
-  }
+  const channels = parseChannelItems($);
+  const totalPages = parseListMaxPage($);
 
   return {
     source: "channels",
-    totalChannels: channelMap.size,
-    channels: Array.from(channelMap.values()),
+    totalChannels: channels.length,
+    channels,
+    page,
+    totalPages,
   };
 }
 

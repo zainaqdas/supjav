@@ -1,13 +1,17 @@
 import Link from 'next/link';
 import SectionHeader from '@/components/SectionHeader';
+import Pagination from '@/components/Pagination';
 import { getActresses } from '@/lib/api';
 import type { ActressItem } from '@/lib/types';
 
-// ISR: revalidate the full actress list every hour (308 pages to scrape)
-export const revalidate = 3600;
-
-export default async function ActressesPage() {
-  const data = await getActresses().catch(() => ({ actresses: [] as ActressItem[] }));
+export default async function ActressesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page: pageStr } = await searchParams;
+  const page = parseInt(pageStr || '1');
+  const data = await getActresses(page).catch(() => ({ actresses: [] as ActressItem[], totalPages: 1, page: 1, totalActresses: 0, source: 'actresses' }));
   const actresses = data.actresses || [];
 
   if (!actresses.length) {
@@ -24,7 +28,7 @@ export default async function ActressesPage() {
         <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-br from-red-600/10 via-blue-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
         <SectionHeader
           title="Actresses"
-          subtitle={`${actresses.length} actresses to discover`}
+          subtitle={`Page ${data.page || page} of ${data.totalPages || 1} — ${data.totalActresses || actresses.length} actresses on this page`}
         />
       </div>
 
@@ -50,6 +54,8 @@ export default async function ActressesPage() {
           </Link>
         ))}
       </div>
+
+      <Pagination currentPage={page} totalPages={data.totalPages || 1} baseUrl="/actresses" />
     </div>
   );
 }

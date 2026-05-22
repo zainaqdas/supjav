@@ -1,13 +1,17 @@
 import Link from 'next/link';
 import SectionHeader from '@/components/SectionHeader';
+import Pagination from '@/components/Pagination';
 import { getChannels } from '@/lib/api';
 import type { ChannelItem } from '@/lib/types';
 
-// ISR: revalidate the full channel list every hour
-export const revalidate = 3600;
-
-export default async function ChannelsPage() {
-  const data = await getChannels().catch(() => ({ channels: [] as ChannelItem[] }));
+export default async function ChannelsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page: pageStr } = await searchParams;
+  const page = parseInt(pageStr || '1');
+  const data = await getChannels(page).catch(() => ({ channels: [] as ChannelItem[], totalPages: 1, page: 1, totalChannels: 0, source: 'channels' }));
   const channels = data.channels || [];
 
   if (!channels.length) {
@@ -24,7 +28,7 @@ export default async function ChannelsPage() {
         <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-br from-red-600/10 via-blue-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
         <SectionHeader
           title="Channels"
-          subtitle={`${channels.length} channels & studios`}
+          subtitle={`Page ${data.page || page} of ${data.totalPages || 1} — ${data.totalChannels || channels.length} channels on this page`}
         />
       </div>
 
@@ -50,6 +54,8 @@ export default async function ChannelsPage() {
           </Link>
         ))}
       </div>
+
+      <Pagination currentPage={page} totalPages={data.totalPages || 1} baseUrl="/channels" />
     </div>
   );
 }

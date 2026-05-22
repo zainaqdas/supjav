@@ -85,6 +85,8 @@ export interface ActressListResponse {
   source: string;
   totalActresses: number;
   actresses: ActressItem[];
+  page: number;
+  totalPages: number;
 }
 
 export interface ChannelItem {
@@ -98,6 +100,8 @@ export interface ChannelListResponse {
   source: string;
   totalChannels: number;
   channels: ChannelItem[];
+  page: number;
+  totalPages: number;
 }
 
 export interface SearchResponse extends PaginatedResponse<VideoResult> {

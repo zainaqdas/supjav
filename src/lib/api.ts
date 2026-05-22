@@ -114,8 +114,8 @@ export async function getCategory(slug: string, page = 1): Promise<CategoryDetai
   };
 }
 
-export async function getActresses(): Promise<ActressListResponse> {
-  const data = await scraper.getActresses();
+export async function getActresses(page = 1): Promise<ActressListResponse> {
+  const data = await scraper.getActresses(page);
   return {
     source: data.source,
     totalActresses: data.totalActresses,
@@ -125,6 +125,8 @@ export async function getActresses(): Promise<ActressListResponse> {
       videoCount: a.videoCount,
       url: a.url,
     })),
+    page: data.page,
+    totalPages: data.totalPages,
   };
 }
 
@@ -140,8 +142,8 @@ export async function getActress(slug: string, page = 1): Promise<ActressDetailR
   };
 }
 
-export async function getChannels(): Promise<ChannelListResponse> {
-  const data = await scraper.getChannels();
+export async function getChannels(page = 1): Promise<ChannelListResponse> {
+  const data = await scraper.getChannels(page);
   return {
     source: data.source,
     totalChannels: data.totalChannels,
@@ -151,6 +153,8 @@ export async function getChannels(): Promise<ChannelListResponse> {
       videoCount: c.videoCount,
       url: c.url,
     })),
+    page: data.page,
+    totalPages: data.totalPages,
   };
 }
 
