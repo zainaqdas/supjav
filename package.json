@@ -1,0 +1,17 @@
+{
+  "name": "javtiful-scraper",
+  "version": "1.0.0",
+  "description": "Node.js scraping API for javtiful.com - extracts video metadata and stream URLs",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "keywords": ["scraper", "javtiful", "jav", "api"],
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.0",
+    "cheerio": "^1.0.0",
+    "express": "^4.21.0"
+  }
+}
