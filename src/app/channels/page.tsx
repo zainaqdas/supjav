@@ -3,6 +3,9 @@ import SectionHeader from '@/components/SectionHeader';
 import { getChannels } from '@/lib/api';
 import type { ChannelItem } from '@/lib/types';
 
+// ISR: revalidate the full channel list every hour
+export const revalidate = 3600;
+
 export default async function ChannelsPage() {
   const data = await getChannels().catch(() => ({ channels: [] as ChannelItem[] }));
   const channels = data.channels || [];

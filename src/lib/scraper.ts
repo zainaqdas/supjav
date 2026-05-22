@@ -365,29 +365,37 @@ export async function getCategory(
 }
 
 // ============================================================
-// ACTRESSES: List all actresses
+// HELPER: Parse max page from front-pagination-link links
 // ============================================================
-export async function getActresses(): Promise<{
-  source: string;
-  totalActresses: number;
-  actresses: ActressItem[];
-}> {
-  const { data } = await client.get("/actresses");
-  const $ = cheerio.load(data);
+function parseListMaxPage($: cheerio.CheerioAPI): number {
+  let maxPage = 1;
+  $(".front-pagination-link").each((_i, el) => {
+    const href = $(el).attr("href") || "";
+    const pageMatch = href.match(/[?&]page=(\d+)/);
+    if (pageMatch) {
+      const num = parseInt(pageMatch[1]);
+      if (num > maxPage) maxPage = num;
+    }
+  });
+  return maxPage;
+}
 
-  const actresses: ActressItem[] = [];
+// ============================================================
+// HELPER: Parse actress items from a page
+// ============================================================
+function parseActressItems($: cheerio.CheerioAPI): ActressItem[] {
+  const items: ActressItem[] = [];
   $('a[href*="/actress/"]').each((_i, el) => {
     const href = $(el).attr("href") || "";
     const name = $(el).text().trim();
     const match = href.match(/\/actress\/([^/]+)/);
     if (match && name) {
-      const existing = actresses.find((a) => a.slug === match[1]);
+      const existing = items.find((a) => a.slug === match[1]);
       if (!existing) {
         const parent = $(el).parent();
         const countText = parent.text().trim();
         const countMatch = countText.match(/(\d+)\s*Videos?/i);
-
-        actresses.push({
+        items.push({
           slug: match[1],
           name: name.replace(/\d+\s*Videos?/i, "").trim(),
           videoCount: countMatch ? parseInt(countMatch[1]) : null,
@@ -396,11 +404,70 @@ export async function getActresses(): Promise<{
       }
     }
   });
+  return items;
+}
+
+// ============================================================
+// ACTRESSES: List all actresses (paginated across all pages)
+// ============================================================
+export async function getActresses(): Promise<{
+  source: string;
+  totalActresses: number;
+  actresses: ActressItem[];
+}> {
+  // Fetch page 1 to discover total pages
+  const { data: data1 } = await client.get("/actresses");
+  const $1 = cheerio.load(data1);
+
+  const maxPage = parseListMaxPage($1);
+
+  // Use Map for O(1) deduplication by slug
+  const actressMap = new Map<string, ActressItem>();
+  for (const item of parseActressItems($1)) {
+    if (!actressMap.has(item.slug)) {
+      actressMap.set(item.slug, item);
+    }
+  }
+
+  // Fetch remaining pages in parallel batches
+  if (maxPage > 1) {
+    const BATCH_SIZE = 30;
+    for (let start = 2; start <= maxPage; start += BATCH_SIZE) {
+      const end = Math.min(start + BATCH_SIZE - 1, maxPage);
+      const pages = Array.from(
+        { length: end - start + 1 },
+        (_v, i) => start + i
+      );
+
+      const results = await Promise.all(
+        pages.map((page) =>
+          client.get(`/actresses?page=${page}`).catch((err) => {
+            console.warn(
+              `[getActresses] page ${page} failed:`,
+              err instanceof Error ? err.message : String(err)
+            );
+            return null;
+          })
+        )
+      );
+
+      for (const res of results) {
+        if (res) {
+          const $ = cheerio.load(res.data);
+          for (const item of parseActressItems($)) {
+            if (!actressMap.has(item.slug)) {
+              actressMap.set(item.slug, item);
+            }
+          }
+        }
+      }
+    }
+  }
 
   return {
     source: "actresses",
-    totalActresses: actresses.length,
-    actresses,
+    totalActresses: actressMap.size,
+    actresses: Array.from(actressMap.values()),
   };
 }
 
@@ -430,29 +497,21 @@ export async function getActress(
 }
 
 // ============================================================
-// CHANNELS: List all channels
+// HELPER: Parse channel items from a page
 // ============================================================
-export async function getChannels(): Promise<{
-  source: string;
-  totalChannels: number;
-  channels: ChannelItem[];
-}> {
-  const { data } = await client.get("/channels");
-  const $ = cheerio.load(data);
-
-  const channels: ChannelItem[] = [];
+function parseChannelItems($: cheerio.CheerioAPI): ChannelItem[] {
+  const items: ChannelItem[] = [];
   $('a[href*="/channel/"]').each((_i, el) => {
     const href = $(el).attr("href") || "";
     const name = $(el).text().trim();
     const match = href.match(/\/channel\/([^/]+)/);
     if (match && name) {
-      const existing = channels.find((c) => c.slug === match[1]);
+      const existing = items.find((c) => c.slug === match[1]);
       if (!existing) {
         const parent = $(el).parent();
         const countText = parent.text().trim();
         const countMatch = countText.match(/(\d+)\s*Videos?/i);
-
-        channels.push({
+        items.push({
           slug: match[1],
           name: name.replace(/\d+\s*Videos?/i, "").trim(),
           videoCount: countMatch ? parseInt(countMatch[1]) : null,
@@ -461,11 +520,70 @@ export async function getChannels(): Promise<{
       }
     }
   });
+  return items;
+}
+
+// ============================================================
+// CHANNELS: List all channels (paginated across all pages)
+// ============================================================
+export async function getChannels(): Promise<{
+  source: string;
+  totalChannels: number;
+  channels: ChannelItem[];
+}> {
+  // Fetch page 1 to discover total pages
+  const { data: data1 } = await client.get("/channels");
+  const $1 = cheerio.load(data1);
+
+  const maxPage = parseListMaxPage($1);
+
+  // Use Map for O(1) deduplication by slug
+  const channelMap = new Map<string, ChannelItem>();
+  for (const item of parseChannelItems($1)) {
+    if (!channelMap.has(item.slug)) {
+      channelMap.set(item.slug, item);
+    }
+  }
+
+  // Fetch remaining pages in parallel batches
+  if (maxPage > 1) {
+    const BATCH_SIZE = 30;
+    for (let start = 2; start <= maxPage; start += BATCH_SIZE) {
+      const end = Math.min(start + BATCH_SIZE - 1, maxPage);
+      const pages = Array.from(
+        { length: end - start + 1 },
+        (_v, i) => start + i
+      );
+
+      const results = await Promise.all(
+        pages.map((page) =>
+          client.get(`/channels?page=${page}`).catch((err) => {
+            console.warn(
+              `[getChannels] page ${page} failed:`,
+              err instanceof Error ? err.message : String(err)
+            );
+            return null;
+          })
+        )
+      );
+
+      for (const res of results) {
+        if (res) {
+          const $ = cheerio.load(res.data);
+          for (const item of parseChannelItems($)) {
+            if (!channelMap.has(item.slug)) {
+              channelMap.set(item.slug, item);
+            }
+          }
+        }
+      }
+    }
+  }
 
   return {
     source: "channels",
-    totalChannels: channels.length,
-    channels,
+    totalChannels: channelMap.size,
+    channels: Array.from(channelMap.values()),
   };
 }
 

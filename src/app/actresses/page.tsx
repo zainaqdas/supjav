@@ -3,6 +3,9 @@ import SectionHeader from '@/components/SectionHeader';
 import { getActresses } from '@/lib/api';
 import type { ActressItem } from '@/lib/types';
 
+// ISR: revalidate the full actress list every hour (308 pages to scrape)
+export const revalidate = 3600;
+
 export default async function ActressesPage() {
   const data = await getActresses().catch(() => ({ actresses: [] as ActressItem[] }));
   const actresses = data.actresses || [];
