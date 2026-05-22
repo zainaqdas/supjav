@@ -1,26 +1,6 @@
 {
-  "buildCommand": "cd frontend && npm run build",
-  "outputDirectory": "frontend/.next",
-  "installCommand": "cd frontend && npm install",
   "framework": "nextjs",
-  "headers": [
-    {
-      "source": "/api/video/(.*)/stream",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=300, s-maxage=300, stale-while-revalidate=3600"
-        }
-      ]
-    },
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=60, s-maxage=60, stale-while-revalidate=3600"
-        }
-      ]
-    }
-  ],
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next"
 }
