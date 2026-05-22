@@ -1,8 +1,8 @@
 {
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/.next",
+  "installCommand": "cd frontend && npm install",
   "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "outputDirectory": ".next",
   "headers": [
     {
       "source": "/api/video/(.*)/stream",
@@ -24,7 +24,7 @@
     }
   ],
   "functions": {
-    "src/app/api/**/*.ts": {
+    "frontend/src/app/api/**/*.ts": {
       "maxDuration": 30
     }
   }
