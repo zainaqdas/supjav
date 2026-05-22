@@ -11,7 +11,9 @@ import type {
   ChannelDetailResponse,
 } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+// Uses relative /api path (API routes are now internal to the Next.js app).
+// Set NEXT_PUBLIC_API_URL to an external scraper URL if running separately.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { next: { revalidate: 60 } });
