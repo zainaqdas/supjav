@@ -1,20 +1,31 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import SectionHeader from '@/components/SectionHeader';
 import VideoGrid from '@/components/VideoGrid';
 import VideoCard from '@/components/VideoCard';
-import { getMain, getTrending } from '@/lib/api';
+import SortSelector from '@/components/SortSelector';
+import { getMain, getTrending, getCensored, getUncensored } from '@/lib/api';
 import type { VideoResult } from '@/lib/types';
 
 // ISR: cache for 60s to reduce calls to source website
 export const revalidate = 60;
 
-export default async function Home() {
-  const [latest, trending] = await Promise.all([
-    getMain().catch(() => ({ videos: [] as VideoResult[], totalPages: 1, page: 1 })),
-    getTrending().catch(() => ({ videos: [] as VideoResult[] })),
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
+  const { sort } = await searchParams;
+  const [latest, trending, censored, uncensored] = await Promise.all([
+    getMain(1, sort).catch(() => ({ videos: [] as VideoResult[], totalPages: 1, page: 1 })),
+    getTrending(1).catch(() => ({ videos: [] as VideoResult[] })),
+    getCensored(1).catch(() => ({ videos: [] as VideoResult[] })),
+    getUncensored(1).catch(() => ({ videos: [] as VideoResult[] })),
   ]);
   const mainVideos = latest.videos || [];
   const trendingVideos = trending.videos || [];
+  const censoredVideos = censored.videos || [];
+  const uncensoredVideos = uncensored.videos || [];
 
   // Get hero videos (first 4 for featured)
   const heroVideos = mainVideos.slice(0, 4);
@@ -72,14 +83,49 @@ export default async function Home() {
 
       {/* Latest Videos */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <SectionHeader
-          title="Latest Uploads"
-          subtitle="Fresh content added regularly"
-          href="/search?q=new"
-          linkLabel="View More"
-        />
+        <div className="flex items-end justify-between gap-4 mb-6">
+          <SectionHeader
+            title="Latest Uploads"
+            subtitle="Fresh content added regularly"
+            href="/search?q=new"
+            linkLabel="View More"
+          />
+          <Suspense>
+            <SortSelector />
+          </Suspense>
+        </div>
         <VideoGrid videos={remainingVideos.slice(0, 15)} />
       </section>
+
+      {/* Censored Section */}
+      {censoredVideos.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-950/20 via-blue-950/20 to-[#0a0a0f] border border-white/5 p-6 lg:p-10">
+            <SectionHeader
+              title="Censored"
+              subtitle="Latest censored JAV videos"
+              href="/censored"
+              linkLabel="See All Censored"
+            />
+            <VideoGrid videos={censoredVideos.slice(0, 10)} />
+          </div>
+        </section>
+      )}
+
+      {/* Uncensored Section */}
+      {uncensoredVideos.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-950/20 via-red-950/20 to-[#0a0a0f] border border-white/5 p-6 lg:p-10">
+            <SectionHeader
+              title="Uncensored"
+              subtitle="Latest uncensored JAV videos"
+              href="/uncensored"
+              linkLabel="See All Uncensored"
+            />
+            <VideoGrid videos={uncensoredVideos.slice(0, 10)} />
+          </div>
+        </section>
+      )}
 
       {/* Trending Section */}
       {trendingVideos.length > 0 && (

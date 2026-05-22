@@ -256,17 +256,38 @@ function parsePagination($: cheerio.CheerioAPI): PaginationInfo {
 }
 
 // ============================================================
+// HELPER: Build URL with optional page and sort params
+// ============================================================
+function buildUrl(basePath: string, page: number, sort?: string): string {
+  const params = new URLSearchParams();
+  if (page > 1) params.set("page", String(page));
+  if (sort) params.set("sort", sort);
+  const qs = params.toString();
+  return qs ? `${basePath}?${qs}` : basePath;
+}
+
+// ============================================================
 // MAIN PAGE: Latest videos
 // ============================================================
 export async function getMain(
-  page = 1
+  page = 1,
+  sort?: string
 ): Promise<PaginatedResponse<VideoResult>> {
-  const url = page > 1 ? `/main?page=${page}` : "/main";
+  const url = buildUrl("/main", page, sort);
   const { data } = await client.get(url);
   const $ = cheerio.load(data);
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+
+  // Source may only render a few page links even when more pages exist.
+  // If this page has videos, assume there's at least a next page.
+  if (videos.length > 0 && pagination.totalPages <= page) {
+    pagination.totalPages = page + 1;
+  } else if (videos.length === 0 && pagination.totalPages <= page) {
+    // We've gone past the last page. Show current page as the last one.
+    pagination.totalPages = page;
+  }
 
   return {
     source: "main",
@@ -281,14 +302,21 @@ export async function getMain(
 // TRENDING: Popular videos
 // ============================================================
 export async function getTrending(
-  page = 1
+  page = 1,
+  sort?: string
 ): Promise<PaginatedResponse<VideoResult>> {
-  const url = page > 1 ? `/trending?page=${page}` : "/trending";
+  const url = buildUrl("/trending", page, sort);
   const { data } = await client.get(url);
   const $ = cheerio.load(data);
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+
+  if (videos.length > 0 && pagination.totalPages <= page) {
+    pagination.totalPages = page + 1;
+  } else if (videos.length === 0 && pagination.totalPages <= page) {
+    pagination.totalPages = page;
+  }
 
   return {
     source: "trending",
@@ -303,14 +331,21 @@ export async function getTrending(
 // CENSORED: Censored videos listing
 // ============================================================
 export async function getCensored(
-  page = 1
+  page = 1,
+  sort?: string
 ): Promise<PaginatedResponse<VideoResult>> {
-  const url = page > 1 ? `/censored?page=${page}` : "/censored";
+  const url = buildUrl("/censored", page, sort);
   const { data } = await client.get(url);
   const $ = cheerio.load(data);
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+
+  if (videos.length > 0 && pagination.totalPages <= page) {
+    pagination.totalPages = page + 1;
+  } else if (videos.length === 0 && pagination.totalPages <= page) {
+    pagination.totalPages = page;
+  }
 
   return {
     source: "censored",
@@ -325,14 +360,21 @@ export async function getCensored(
 // UNCENSORED: Uncensored videos listing
 // ============================================================
 export async function getUncensored(
-  page = 1
+  page = 1,
+  sort?: string
 ): Promise<PaginatedResponse<VideoResult>> {
-  const url = page > 1 ? `/uncensored?page=${page}` : "/uncensored";
+  const url = buildUrl("/uncensored", page, sort);
   const { data } = await client.get(url);
   const $ = cheerio.load(data);
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+
+  if (videos.length > 0 && pagination.totalPages <= page) {
+    pagination.totalPages = page + 1;
+  } else if (videos.length === 0 && pagination.totalPages <= page) {
+    pagination.totalPages = page;
+  }
 
   return {
     source: "uncensored",
@@ -347,14 +389,21 @@ export async function getUncensored(
 // REDUCING-MOSAIC: Reducing mosaic videos listing
 // ============================================================
 export async function getReducingMosaic(
-  page = 1
+  page = 1,
+  sort?: string
 ): Promise<PaginatedResponse<VideoResult>> {
-  const url = page > 1 ? `/reducing-mosaic?page=${page}` : "/reducing-mosaic";
+  const url = buildUrl("/reducing-mosaic", page, sort);
   const { data } = await client.get(url);
   const $ = cheerio.load(data);
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+
+  if (videos.length > 0 && pagination.totalPages <= page) {
+    pagination.totalPages = page + 1;
+  } else if (videos.length === 0 && pagination.totalPages <= page) {
+    pagination.totalPages = page;
+  }
 
   return {
     source: "reducing-mosaic",

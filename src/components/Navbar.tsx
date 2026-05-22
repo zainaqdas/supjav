@@ -49,12 +49,14 @@ export default function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-600 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-red-600/20 group-hover:shadow-red-600/40 transition-all duration-300">
-              J
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
             </div>
             <span className="text-xl font-bold tracking-tight">
               <span className="text-red-500">Jav</span>
-              <span className="text-blue-400">tiful</span>
-              <span className="text-white/80 ml-1 text-sm font-normal">Stream</span>
+              <span className="text-blue-400">Online</span>
+              <span className="text-white/80 ml-1 text-sm font-normal">Hd</span>
             </span>
           </Link>
 

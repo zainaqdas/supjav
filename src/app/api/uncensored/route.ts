@@ -5,7 +5,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const result = await getUncensored(page);
+    const sort = searchParams.get("sort") || undefined;
+    const result = await getUncensored(page, sort);
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

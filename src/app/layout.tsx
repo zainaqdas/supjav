@@ -8,9 +8,12 @@ import Footer from '@/components/Footer';
 // and cause every request to hit javtiful.com on every render.
 
 export const metadata: Metadata = {
-  title: 'Javtiful Stream - Watch HD Videos',
-  description: 'Stream the latest HD videos with our modern streaming platform. Browse categories, actresses, channels, and trending content.',
-  keywords: 'streaming, videos, HD, categories, actresses',
+  title: 'JavOnlineHd - Watch HD Videos',
+  description: 'Stream the latest HD videos with JavOnlineHd. Browse censored, uncensored, categories, actresses, channels, and trending content.',
+  keywords: 'jav, hd, streaming, videos, censored, uncensored, categories, actresses',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({

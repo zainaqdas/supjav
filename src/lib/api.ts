@@ -66,8 +66,8 @@ function mapVideoDetail(v: scraper.VideoDetail): VideoDetail {
   };
 }
 
-export async function getMain(page = 1): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getMain(page);
+export async function getMain(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
+  const data = await scraper.getMain(page, sort);
   return {
     source: data.source,
     page: data.page,
@@ -77,8 +77,8 @@ export async function getMain(page = 1): Promise<PaginatedResponse<VideoResult>>
   };
 }
 
-export async function getTrending(page = 1): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getTrending(page);
+export async function getTrending(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
+  const data = await scraper.getTrending(page, sort);
   return {
     source: data.source,
     page: data.page,
@@ -88,8 +88,8 @@ export async function getTrending(page = 1): Promise<PaginatedResponse<VideoResu
   };
 }
 
-export async function getCensored(page = 1): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getCensored(page);
+export async function getCensored(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
+  const data = await scraper.getCensored(page, sort);
   return {
     source: data.source,
     page: data.page,
@@ -99,8 +99,8 @@ export async function getCensored(page = 1): Promise<PaginatedResponse<VideoResu
   };
 }
 
-export async function getUncensored(page = 1): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getUncensored(page);
+export async function getUncensored(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
+  const data = await scraper.getUncensored(page, sort);
   return {
     source: data.source,
     page: data.page,
@@ -110,8 +110,8 @@ export async function getUncensored(page = 1): Promise<PaginatedResponse<VideoRe
   };
 }
 
-export async function getReducingMosaic(page = 1): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getReducingMosaic(page);
+export async function getReducingMosaic(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
+  const data = await scraper.getReducingMosaic(page, sort);
   return {
     source: data.source,
     page: data.page,

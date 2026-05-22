@@ -9,11 +9,12 @@ export default function Footer() {
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-600 to-blue-600 flex items-center justify-center text-white font-bold text-xs">
-                J
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
               </div>
               <span className="text-lg font-bold">
                 <span className="text-red-500">Jav</span>
-                <span className="text-blue-400">tiful</span>
+                <span className="text-blue-400">Online</span>
+                <span className="text-white/60 ml-1 text-sm font-normal">Hd</span>
               </span>
             </Link>
             <p className="text-white/40 text-sm leading-relaxed">
@@ -71,7 +72,7 @@ export default function Footer() {
 
         <div className="mt-10 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-white/20 text-xs">
-            &copy; {new Date().getFullYear()} Javtiful Stream. All rights reserved.
+            &copy; {new Date().getFullYear()} JavOnlineHd. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
             <span className="text-white/20 text-xs">Privacy</span>
