@@ -300,6 +300,72 @@ export async function getTrending(
 }
 
 // ============================================================
+// CENSORED: Censored videos listing
+// ============================================================
+export async function getCensored(
+  page = 1
+): Promise<PaginatedResponse<VideoResult>> {
+  const url = page > 1 ? `/censored?page=${page}` : "/censored";
+  const { data } = await client.get(url);
+  const $ = cheerio.load(data);
+
+  const videos = parseVideoCards($);
+  const pagination = parsePagination($);
+
+  return {
+    source: "censored",
+    page: pagination.currentPage || page,
+    totalPages: pagination.totalPages,
+    totalResults: videos.length,
+    videos,
+  };
+}
+
+// ============================================================
+// UNCENSORED: Uncensored videos listing
+// ============================================================
+export async function getUncensored(
+  page = 1
+): Promise<PaginatedResponse<VideoResult>> {
+  const url = page > 1 ? `/uncensored?page=${page}` : "/uncensored";
+  const { data } = await client.get(url);
+  const $ = cheerio.load(data);
+
+  const videos = parseVideoCards($);
+  const pagination = parsePagination($);
+
+  return {
+    source: "uncensored",
+    page: pagination.currentPage || page,
+    totalPages: pagination.totalPages,
+    totalResults: videos.length,
+    videos,
+  };
+}
+
+// ============================================================
+// REDUCING-MOSAIC: Reducing mosaic videos listing
+// ============================================================
+export async function getReducingMosaic(
+  page = 1
+): Promise<PaginatedResponse<VideoResult>> {
+  const url = page > 1 ? `/reducing-mosaic?page=${page}` : "/reducing-mosaic";
+  const { data } = await client.get(url);
+  const $ = cheerio.load(data);
+
+  const videos = parseVideoCards($);
+  const pagination = parsePagination($);
+
+  return {
+    source: "reducing-mosaic",
+    page: pagination.currentPage || page,
+    totalPages: pagination.totalPages,
+    totalResults: videos.length,
+    videos,
+  };
+}
+
+// ============================================================
 // CATEGORIES: List all categories
 // ============================================================
 export async function getCategories(): Promise<{

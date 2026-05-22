@@ -44,8 +44,9 @@ export default function Footer() {
             <div className="space-y-2">
               {[
                 { href: '/channels', label: 'Channels' },
-                { href: '/search?q=new', label: 'Latest Uploads' },
-                { href: '/search?q=uncensored', label: 'Uncensored' },
+                { href: '/censored', label: 'Censored' },
+                { href: '/uncensored', label: 'Uncensored' },
+                { href: '/reducing-mosaic', label: 'Reducing Mosaic' },
                 { href: '/search?q=hd', label: 'HD Videos' },
               ].map((link) => (
                 <Link key={link.href} href={link.href} className="block text-white/40 hover:text-red-400 text-sm transition-colors">

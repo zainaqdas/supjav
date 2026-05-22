@@ -88,6 +88,39 @@ export async function getTrending(page = 1): Promise<PaginatedResponse<VideoResu
   };
 }
 
+export async function getCensored(page = 1): Promise<PaginatedResponse<VideoResult>> {
+  const data = await scraper.getCensored(page);
+  return {
+    source: data.source,
+    page: data.page,
+    totalPages: data.totalPages,
+    totalResults: data.totalResults,
+    videos: data.videos.map(mapVideoResult),
+  };
+}
+
+export async function getUncensored(page = 1): Promise<PaginatedResponse<VideoResult>> {
+  const data = await scraper.getUncensored(page);
+  return {
+    source: data.source,
+    page: data.page,
+    totalPages: data.totalPages,
+    totalResults: data.totalResults,
+    videos: data.videos.map(mapVideoResult),
+  };
+}
+
+export async function getReducingMosaic(page = 1): Promise<PaginatedResponse<VideoResult>> {
+  const data = await scraper.getReducingMosaic(page);
+  return {
+    source: data.source,
+    page: data.page,
+    totalPages: data.totalPages,
+    totalResults: data.totalResults,
+    videos: data.videos.map(mapVideoResult),
+  };
+}
+
 export async function getCategories(): Promise<CategoryListResponse> {
   const data = await scraper.getCategories();
   return {

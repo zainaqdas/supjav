@@ -31,6 +31,9 @@ export default function Navbar() {
     { href: '/categories', label: 'Categories' },
     { href: '/actresses', label: 'Actresses' },
     { href: '/channels', label: 'Channels' },
+    { href: '/censored', label: 'Censored' },
+    { href: '/uncensored', label: 'Uncensored' },
+    { href: '/reducing-mosaic', label: 'Reducing Mosaic' },
   ];
 
   return (
