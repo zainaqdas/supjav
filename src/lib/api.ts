@@ -15,8 +15,9 @@ import type {
 // Set NEXT_PUBLIC_API_URL to an external scraper URL if running separately.
 const getApiBase = () => {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
-    return `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api`;
+  // VERCEL_URL is set automatically by Vercel (server-side only, e.g. "supjav-beige.vercel.app")
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/api`;
   }
   return '/api';
 };
