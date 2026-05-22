@@ -5,6 +5,9 @@ import SectionHeader from '@/components/SectionHeader';
 import { getVideoDetail, getTrending } from '@/lib/api';
 import type { VideoDetail, VideoResult } from '@/lib/types';
 
+// ISR: cache for 300s (5 min) — video detail is heavy and rarely changes
+export const revalidate = 300;
+
 async function getVideo(id: string, slug: string): Promise<VideoDetail | null> {
   try {
     return await getVideoDetail(id, slug);

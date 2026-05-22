@@ -4,6 +4,9 @@ import Pagination from '@/components/Pagination';
 import { getChannels } from '@/lib/api';
 import type { ChannelItem } from '@/lib/types';
 
+// ISR: cache for 60s to reduce calls to source website
+export const revalidate = 60;
+
 export default async function ChannelsPage({
   searchParams,
 }: {

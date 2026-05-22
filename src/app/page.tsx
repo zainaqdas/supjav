@@ -5,6 +5,9 @@ import VideoCard from '@/components/VideoCard';
 import { getMain, getTrending } from '@/lib/api';
 import type { VideoResult } from '@/lib/types';
 
+// ISR: cache for 60s to reduce calls to source website
+export const revalidate = 60;
+
 export default async function Home() {
   const [latest, trending] = await Promise.all([
     getMain().catch(() => ({ videos: [] as VideoResult[], totalPages: 1, page: 1 })),

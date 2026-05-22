@@ -4,6 +4,9 @@ import Pagination from '@/components/Pagination';
 import { getCategory } from '@/lib/api';
 import type { VideoResult } from '@/lib/types';
 
+// ISR: cache for 120s to reduce calls to source website
+export const revalidate = 120;
+
 async function getCategoryVideos(slug: string, page: number): Promise<{ videos: VideoResult[]; totalPages: number; page: number; totalResults: number }> {
   try {
     return await getCategory(slug, page);

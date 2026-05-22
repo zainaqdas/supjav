@@ -3,9 +3,9 @@ import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
-// Skip static generation at build time — pages render at request time (SSR)
-// because the scraper API calls javtiful.com and are too slow for build-time pre-rendering.
-export const dynamic = 'force-dynamic';
+// Pages use page-level `revalidate` for ISR caching (60s-300s).
+// No force-dynamic here — that would override page-level revalidate
+// and cause every request to hit javtiful.com on every render.
 
 export const metadata: Metadata = {
   title: 'Javtiful Stream - Watch HD Videos',

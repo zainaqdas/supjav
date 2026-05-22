@@ -4,6 +4,9 @@ import Pagination from '@/components/Pagination';
 import { search } from '@/lib/api';
 import type { VideoResult, SearchResponse } from '@/lib/types';
 
+// ISR: cache for 60s to reduce calls to source website
+export const revalidate = 60;
+
 async function doSearch(query: string, page: number): Promise<SearchResponse> {
   try {
     return await search(query, page);
