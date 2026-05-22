@@ -291,7 +291,7 @@ export async function getMain(
 
   return {
     source: "main",
-    page: pagination.currentPage || page,
+    page,
     totalPages: pagination.totalPages,
     totalResults: videos.length,
     videos,
@@ -320,7 +320,7 @@ export async function getTrending(
 
   return {
     source: "trending",
-    page: pagination.currentPage || page,
+    page,
     totalPages: pagination.totalPages,
     totalResults: videos.length,
     videos,
@@ -349,7 +349,7 @@ export async function getCensored(
 
   return {
     source: "censored",
-    page: pagination.currentPage || page,
+    page,
     totalPages: pagination.totalPages,
     totalResults: videos.length,
     videos,
@@ -378,7 +378,7 @@ export async function getUncensored(
 
   return {
     source: "uncensored",
-    page: pagination.currentPage || page,
+    page,
     totalPages: pagination.totalPages,
     totalResults: videos.length,
     videos,
@@ -407,7 +407,7 @@ export async function getReducingMosaic(
 
   return {
     source: "reducing-mosaic",
-    page: pagination.currentPage || page,
+    page,
     totalPages: pagination.totalPages,
     totalResults: videos.length,
     videos,
