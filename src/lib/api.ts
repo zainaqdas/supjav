@@ -1,3 +1,4 @@
+import * as scraper from './scraper';
 import type {
   VideoResult,
   VideoDetail,
@@ -11,63 +12,166 @@ import type {
   ChannelDetailResponse,
 } from './types';
 
-// On Vercel, use the deployment URL; in local dev, use relative /api.
-// Set NEXT_PUBLIC_API_URL to an external scraper URL if running separately.
-const getApiBase = () => {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  // VERCEL_URL is set automatically by Vercel (server-side only, e.g. "supjav-beige.vercel.app")
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}/api`;
-  }
-  return '/api';
-};
+// ============================================================
+// API client — calls the scraper directly instead of making
+// HTTP self-fetches to /api/*. This works reliably during SSR
+// on Vercel where relative fetch URLs can't resolve.
+// ============================================================
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { next: { revalidate: 60 } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  return res.json();
+function mapVideoResult(v: scraper.VideoResult): VideoResult {
+  return {
+    id: v.id,
+    slug: v.slug,
+    title: v.title,
+    url: v.url || '',
+    thumbnail: v.thumbnail,
+    previewVideo: v.previewVideo,
+    duration: v.duration,
+    quality: v.quality,
+    views: v.views,
+    timeAgo: v.timeAgo,
+    badges: v.badges,
+  };
 }
 
-const BASE = getApiBase();
+function mapVideoDetail(v: scraper.VideoDetail): VideoDetail {
+  return {
+    ...mapVideoResult(v),
+    poster: v.poster,
+    description: v.description,
+    keywords: v.keywords,
+    videoCode: v.videoCode,
+    releaseDate: v.releaseDate,
+    qualityOptions: v.qualityOptions,
+    defaultQuality: v.defaultQuality,
+    streams: v.streams.map((s) => ({
+      url: s.url || '',
+      type: s.type || '',
+      quality: s.quality || '',
+    })),
+    previewSources: v.previewSources,
+    thumbnails: v.thumbnails,
+    actresses: v.actresses,
+    tags: v.tags,
+    endpoints: v.endpoints,
+  };
+}
 
 export async function getMain(page = 1): Promise<PaginatedResponse<VideoResult>> {
-  return fetchJson(`${BASE}/main?page=${page}`);
+  const data = await scraper.getMain(page);
+  return {
+    source: data.source,
+    page: data.page,
+    totalPages: data.totalPages,
+    totalResults: data.totalResults,
+    videos: data.videos.map(mapVideoResult),
+  };
 }
 
 export async function getTrending(page = 1): Promise<PaginatedResponse<VideoResult>> {
-  return fetchJson(`${BASE}/trending?page=${page}`);
+  const data = await scraper.getTrending(page);
+  return {
+    source: data.source,
+    page: data.page,
+    totalPages: data.totalPages,
+    totalResults: data.totalResults,
+    videos: data.videos.map(mapVideoResult),
+  };
 }
 
 export async function getCategories(): Promise<CategoryListResponse> {
-  return fetchJson(`${BASE}/categories`);
+  const data = await scraper.getCategories();
+  return {
+    source: data.source,
+    totalCategories: data.totalCategories,
+    categories: data.categories.map((c) => ({
+      slug: c.slug,
+      name: c.name,
+      videoCount: c.videoCount,
+      url: c.url,
+    })),
+  };
 }
 
 export async function getCategory(slug: string, page = 1): Promise<CategoryDetailResponse> {
-  return fetchJson(`${BASE}/category/${encodeURIComponent(slug)}?page=${page}`);
+  const data = await scraper.getCategory(slug, page);
+  return {
+    source: data.source,
+    category: data.category,
+    page: data.page,
+    totalPages: data.totalPages,
+    totalResults: data.totalResults,
+    videos: data.videos.map(mapVideoResult),
+  };
 }
 
 export async function getActresses(): Promise<ActressListResponse> {
-  return fetchJson(`${BASE}/actresses`);
+  const data = await scraper.getActresses();
+  return {
+    source: data.source,
+    totalActresses: data.totalActresses,
+    actresses: data.actresses.map((a) => ({
+      slug: a.slug,
+      name: a.name,
+      videoCount: a.videoCount,
+      url: a.url,
+    })),
+  };
 }
 
 export async function getActress(slug: string, page = 1): Promise<ActressDetailResponse> {
-  return fetchJson(`${BASE}/actress/${encodeURIComponent(slug)}?page=${page}`);
+  const data = await scraper.getActress(slug, page);
+  return {
+    source: data.source,
+    actress: data.actress,
+    page: data.page,
+    totalPages: data.totalPages,
+    totalResults: data.totalResults,
+    videos: data.videos.map(mapVideoResult),
+  };
 }
 
 export async function getChannels(): Promise<ChannelListResponse> {
-  return fetchJson(`${BASE}/channels`);
+  const data = await scraper.getChannels();
+  return {
+    source: data.source,
+    totalChannels: data.totalChannels,
+    channels: data.channels.map((c) => ({
+      slug: c.slug,
+      name: c.name,
+      videoCount: c.videoCount,
+      url: c.url,
+    })),
+  };
 }
 
 export async function getChannel(slug: string, page = 1): Promise<ChannelDetailResponse> {
-  return fetchJson(`${BASE}/channel/${encodeURIComponent(slug)}?page=${page}`);
+  const data = await scraper.getChannel(slug, page);
+  return {
+    source: data.source,
+    channel: data.channel,
+    page: data.page,
+    totalPages: data.totalPages,
+    totalResults: data.totalResults,
+    videos: data.videos.map(mapVideoResult),
+  };
 }
 
 export async function search(query: string, page = 1): Promise<SearchResponse> {
-  return fetchJson(`${BASE}/search?q=${encodeURIComponent(query)}&page=${page}`);
+  const data = await scraper.search(query, page);
+  return {
+    source: data.source,
+    query: data.query,
+    page: data.page,
+    totalPages: data.totalPages,
+    totalResults: data.totalResults,
+    videos: data.videos.map(mapVideoResult),
+  };
 }
 
 export async function getVideoDetail(id: string, slug: string): Promise<VideoDetail> {
-  return fetchJson(`${BASE}/video/${encodeURIComponent(id)}/${encodeURIComponent(slug)}`);
+  const data = await scraper.getVideoDetail(id, slug);
+  return mapVideoDetail(data);
 }
 
 export async function getVideoStream(id: string): Promise<{
@@ -77,5 +181,18 @@ export async function getVideoStream(id: string): Promise<{
   qualityOptions: number[];
   defaultQuality: number | null;
 }> {
-  return fetchJson(`${BASE}/video/${encodeURIComponent(id)}/stream`);
+  // getVideoDetail fetches all video data including streams.
+  // For the stream-specific endpoint, extract just stream info.
+  const detail = await scraper.getVideoDetail(id);
+  return {
+    id: detail.id,
+    title: detail.title,
+    streams: detail.streams.map((s) => ({
+      url: s.url || '',
+      type: s.type || '',
+      quality: s.quality || '',
+    })),
+    qualityOptions: detail.qualityOptions,
+    defaultQuality: detail.defaultQuality,
+  };
 }
