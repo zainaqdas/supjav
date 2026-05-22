@@ -18,14 +18,23 @@ import type {
 // on Vercel where relative fetch URLs can't resolve.
 // ============================================================
 
+function proxyImageUrl(url: string | null): string | null {
+  if (!url) return null;
+  // Proxy javtiful.com images through our API to avoid CORS/referer blocking
+  if (url.includes('javtiful.com')) {
+    return `/api/proxy/image?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 function mapVideoResult(v: scraper.VideoResult): VideoResult {
   return {
     id: v.id,
     slug: v.slug,
     title: v.title,
     url: v.url || '',
-    thumbnail: v.thumbnail,
-    previewVideo: v.previewVideo,
+    thumbnail: proxyImageUrl(v.thumbnail),
+    previewVideo: proxyImageUrl(v.previewVideo),
     duration: v.duration,
     quality: v.quality,
     views: v.views,
@@ -37,7 +46,7 @@ function mapVideoResult(v: scraper.VideoResult): VideoResult {
 function mapVideoDetail(v: scraper.VideoDetail): VideoDetail {
   return {
     ...mapVideoResult(v),
-    poster: v.poster,
+    poster: proxyImageUrl(v.poster),
     description: v.description,
     keywords: v.keywords,
     videoCode: v.videoCode,
@@ -50,7 +59,7 @@ function mapVideoDetail(v: scraper.VideoDetail): VideoDetail {
       quality: s.quality || '',
     })),
     previewSources: v.previewSources,
-    thumbnails: v.thumbnails,
+    thumbnails: v.thumbnails.map((t) => proxyImageUrl(t) || t),
     actresses: v.actresses,
     tags: v.tags,
     endpoints: v.endpoints,

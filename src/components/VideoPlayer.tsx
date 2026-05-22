@@ -124,7 +124,6 @@ export default function VideoPlayer({ streams, poster, title }: VideoPlayerProps
         className="w-full h-full object-contain"
         onClick={togglePlay}
         playsInline
-        crossOrigin="anonymous"
       />
 
       {/* Big play button */}
