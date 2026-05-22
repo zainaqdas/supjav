@@ -45,47 +45,28 @@
 
 ## 🏗 Architecture
 
-There are **two ways** to run this project:
-
-### Option 1: All-in-one (Vercel-ready) ← Recommended
+A single Next.js 16 project containing both the **frontend** (SSR pages) and the **scraper API** (serverless functions).
 
 ```
 ┌──────────────────────────────────────┐
-│  Next.js 16 + TS (Vercel)            │
+│  Next.js 16 + TS                     │
 │                                      │
-│  /app/page.tsx  ──fetch──▶  /api/... │
-│  (SSR + ISR)                │        │
-│                             │        │
-│                    ┌────────▼──────┐  │
-│                    │  API Routes   │  │
-│                    │  (serverless) │  │
-│                    │  cheerio+axios│  │
-│                    └───────┬───────┘  │
-│                            │          │
-└────────────────────────────┼──────────┘
-                             ▼
-                    ┌──────────────────┐
-                    │   javtiful.com   │
-                    └──────────────────┘
+│  src/app/page.tsx  ──fetch──▶  /api/│
+│  (SSR + ISR)              │         │
+│                           │         │
+│               ┌───────────▼───────┐  │
+│               │  API Routes       │  │
+│               │  (serverless)     │  │
+│               │  cheerio + axios  │  │
+│               └─────────┬─────────┘  │
+└─────────────────────────┼────────────┘
+                          ▼
+                 ┌──────────────────┐
+                 │   javtiful.com   │
+                 └──────────────────┘
 ```
 
-The scraper logic is embedded as **Next.js API routes** (`/api/*`). No separate server needed — deploy the entire app to Vercel with a single push.
-
-### Option 2: Separate servers (dev mode)
-
-```
-┌─────────────────────┐       ┌──────────────────────┐
-│  Next.js (:3001)    │──HTTP─▶│  Express (:3000)     │
-│  SSR + ISR pages    │  JSON │  cheerio + axios     │
-└─────────────────────┘       └──────────┬───────────┘
-                                         │
-                                         ▼
-                                  ┌──────────────────┐
-                                  │   javtiful.com   │
-                                  └──────────────────┘
-```
-
-A standalone Express server (`src/server.js`) that you can run separately. Useful for local development if you prefer.
+Everything lives at the project root — no subdirectories, no separate scraper server. The scraper logic is embedded as **Next.js API routes** (`src/app/api/*`). Deploy the entire app to Vercel with a single push.
 
 ---
 
@@ -102,31 +83,15 @@ git clone https://github.com/zainaqdas/supjav.git
 cd supjav
 ```
 
-### 2. Install & run (all-in-one)
+### 2. Install & run
 
 ```bash
-cd frontend
 npm install
 npm run dev
 # → Opens at http://localhost:3000
 ```
 
 The API routes are included — no separate scraper server needed!
-
-### Or: Run scraper separately (dev mode)
-
-```bash
-# Terminal 1: scraper
-npm install
-npm start
-# → http://localhost:3000
-
-# Terminal 2: frontend
-cd frontend
-npm install
-NEXT_PUBLIC_API_URL=http://localhost:3000/api npm run dev
-# → http://localhost:3001
-```
 
 ---
 
@@ -136,31 +101,26 @@ NEXT_PUBLIC_API_URL=http://localhost:3000/api npm run dev
 
 1. Push this repo to GitHub
 2. Go to [vercel.com/new](https://vercel.com/new) and import the repo
-3. Set **Root Directory** to `frontend`
-4. Click **Deploy**
+3. Click **Deploy**
 
-That's it! Vercel auto-detects Next.js and builds the app.
+That's it! Vercel auto-detects Next.js — no root directory or configuration needed.
 
 ### Manual Deploy (CLI)
 
 ```bash
-cd frontend
 npx vercel
 # Follow the prompts to link and deploy
 ```
 
 ### Configuration
 
-The `frontend/vercel.json` is pre-configured:
+The root `vercel.json` is pre-configured:
 
 | Setting | Value |
 |---|---|
 | Framework | `nextjs` |
 | Build command | `npm run build` |
 | Output directory | `.next` |
-| API function timeout | 30 seconds |
-| API cache (listings) | 60s CDN + stale-while-revalidate |
-| API cache (streams) | 300s CDN + stale-while-revalidate |
 
 ### Environment Variables (Vercel Dashboard)
 
@@ -168,7 +128,7 @@ The `frontend/vercel.json` is pre-configured:
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | (leave empty — uses internal `/api`) | No |
 
-> **No environment variables needed** for the default all-in-one setup. The API routes are self-contained.
+> **No environment variables needed.** The API routes are self-contained within the Next.js app.
 
 ---
 
@@ -176,9 +136,7 @@ The `frontend/vercel.json` is pre-configured:
 
 The scraper parses HTML from javtiful.com and exposes a clean JSON REST API at `/api/*`.
 
-**Endpoints are available at:**
-- **All-in-one:** `http://localhost:3000/api/*` (same as frontend)
-- **Separate server:** `http://localhost:3000/api/*` (Express on port 3000)
+**Base URL:** `http://localhost:3000/api/*` (same origin as the frontend)
 
 ### API Endpoints
 
@@ -337,23 +295,15 @@ A modern, responsive streaming website built with **Next.js 16**, **TypeScript**
 
 ## 🔧 Environment Variables
 
-### Frontend (`.env.local`)
+### `.env.local`
 
 | Variable | Default | Description |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | `/api` | Base URL for scraper API. Leave empty for internal API routes. Set to `http://localhost:3000/api` to use standalone scraper. |
-
-### Standalone Scraper (`.env`)
-
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `3000` | Express server listen port |
+| `NEXT_PUBLIC_API_URL` | `/api` | Base URL for scraper API. Leave empty for internal API routes. |
 
 ---
 
 ## 🛠 Tech Stack
-
-### Frontend + API
 
 - **[Next.js 16](https://nextjs.org/)** — React framework with SSR, ISR, App Router, API routes
 - **[React 19](https://react.dev/)** — UI library
@@ -363,69 +313,85 @@ A modern, responsive streaming website built with **Next.js 16**, **TypeScript**
 - **[axios](https://axios-http.com/)** — HTTP client for scraping
 - **[cheerio](https://cheerio.js.org/)** — jQuery-style HTML parsing
 
-### Standalone Scraper (optional)
-
-- **[Express](https://expressjs.com/)** — HTTP server & routing
-- **[axios](https://axios-http.com/)** — HTTP client
-- **[cheerio](https://cheerio.js.org/)** — HTML parsing
-
 ---
 
 ## 📁 Project Structure
 
+A single, consolidated Next.js project at root — no subdirectories, no separate servers.
+
 ```
 supjav/
-├── package.json              # Standalone scraper dependencies & scripts
-├── src/
-│   ├── server.js             # Express server with 16 routes (optional)
-│   └── scraper.js            # Core scraping engine (CommonJS, for standalone use)
-├── frontend/
-│   ├── package.json          # Frontend + API dependencies & scripts
-│   ├── next.config.ts        # Next.js configuration
-│   ├── vercel.json           # Vercel deployment config (caching, timeouts)
-│   └── src/
-│       ├── app/
-│       │   ├── layout.tsx    # Root layout (theme, fonts, metadata)
-│       │   ├── page.tsx      # Home page
-│       │   ├── loading.tsx   # Global loading skeleton
-│       │   ├── error.tsx     # Error boundary
-│       │   ├── not-found.tsx # 404 page
-│       │   ├── trending/
-│       │   ├── categories/
-│       │   ├── category/[slug]/
-│       │   ├── actresses/
-│       │   ├── actress/[slug]/
-│       │   ├── channels/
-│       │   ├── channel/[slug]/
-│       │   ├── search/
-│       │   ├── video/[id]/[slug]/
-│       │   └── api/          # ← Scraper API routes (serverless on Vercel)
-│       │       ├── route.ts
-│       │       ├── main/
-│       │       ├── trending/
-│       │       ├── categories/
-│       │       ├── category/[slug]/
-│       │       ├── actresses/
-│       │       ├── actress/[slug]/
-│       │       ├── channels/
-│       │       ├── channel/[slug]/
-│       │       ├── search/
-│       │       ├── video/[id]/
-│       │       └── csrf-token/
-│       ├── components/
-│       │   ├── Navbar.tsx
-│       │   ├── Footer.tsx
-│       │   ├── VideoCard.tsx
-│       │   ├── PreviewVideo.tsx
-│       │   ├── VideoPlayer.tsx
-│       │   ├── VideoGrid.tsx
-│       │   ├── Pagination.tsx
-│       │   └── SectionHeader.tsx
-│       └── lib/
-│           ├── api.ts        # Frontend API client (fetch wrapper)
-│           ├── types.ts      # TypeScript type definitions
-│           └── scraper.ts    # Scraper logic (TypeScript ESM, for API routes)
-└── README.md
+├── package.json              # Single package.json for everything
+├── next.config.ts            # Next.js configuration
+├── tsconfig.json             # TypeScript configuration
+├── vercel.json               # Vercel deployment config (framework: nextjs)
+├── postcss.config.mjs        # PostCSS / Tailwind config
+├── eslint.config.mjs         # ESLint configuration
+├── .gitignore
+├── README.md
+├── public/                   # Static assets (favicons, SVGs)
+└── src/
+    ├── app/
+    │   ├── globals.css       # Global styles & Tailwind imports
+    │   ├── layout.tsx        # Root layout (theme, fonts, metadata, force-dynamic)
+    │   ├── page.tsx          # Home page (hero, featured, latest, trending)
+    │   ├── loading.tsx       # Global loading skeleton (shimmer)
+    │   ├── error.tsx         # Error boundary with reset
+    │   ├── not-found.tsx     # Custom 404 page
+    │   ├── favicon.ico
+    │   ├── trending/
+    │   │   └── page.tsx      # /trending
+    │   ├── categories/
+    │   │   └── page.tsx      # /categories
+    │   ├── category/
+    │   │   └── [slug]/
+    │   │       └── page.tsx  # /category/:slug
+    │   ├── actresses/
+    │   │   └── page.tsx      # /actresses
+    │   ├── actress/
+    │   │   └── [slug]/
+    │   │       └── page.tsx  # /actress/:slug
+    │   ├── channels/
+    │   │   └── page.tsx      # /channels
+    │   ├── channel/
+    │   │   └── [slug]/
+    │   │       └── page.tsx  # /channel/:slug
+    │   ├── search/
+    │   │   └── page.tsx      # /search?q=query
+    │   ├── video/
+    │   │   └── [id]/
+    │   │       └── [slug]/
+    │   │           └── page.tsx  # /video/:id/:slug (player, metadata, related)
+    │   └── api/              # ← All scraper endpoints (serverless on Vercel)
+    │       ├── route.ts                  # API docs (GET /api)
+    │       ├── main/route.ts             # GET /api/main?page=1
+    │       ├── trending/route.ts         # GET /api/trending?page=1
+    │       ├── categories/route.ts       # GET /api/categories
+    │       ├── category/[slug]/route.ts  # GET /api/category/:slug?page=1
+    │       ├── actresses/route.ts        # GET /api/actresses
+    │       ├── actress/[slug]/route.ts   # GET /api/actress/:slug?page=1
+    │       ├── channels/route.ts         # GET /api/channels
+    │       ├── channel/[slug]/route.ts   # GET /api/channel/:slug?page=1
+    │       ├── search/route.ts           # GET /api/search?q=query&page=1
+    │       ├── video/[id]/route.ts       # GET /api/video/:id
+    │       ├── video/[id]/[slug]/route.ts   # GET /api/video/:id/:slug
+    │       ├── video/[id]/stream/route.ts   # GET /api/video/:id/stream
+    │       ├── video/[id]/comments/route.ts # GET /api/video/:id/comments
+    │       ├── video/[id]/download-link/route.ts  # GET /api/video/:id/download-link
+    │       └── csrf-token/route.ts       # GET /api/csrf-token
+    ├── components/
+    │   ├── Navbar.tsx            # Sticky nav with scroll blur, mobile hamburger, search
+    │   ├── Footer.tsx            # Links and branding
+    │   ├── VideoCard.tsx         # Glassmorphism card with hover overlay & badges
+    │   ├── PreviewVideo.tsx      # 'use client' mouse-enter preview playback
+    │   ├── VideoPlayer.tsx       # Custom player: play/pause, volume, quality, fullscreen
+    │   ├── VideoGrid.tsx         # Responsive grid with fade-in-up animations
+    │   ├── Pagination.tsx        # 'use client' prev/next, page numbers, gradient active
+    │   └── SectionHeader.tsx     # Gradient-text titles with optional "View All" link
+    └── lib/
+        ├── api.ts                # Centralized API client (fetch wrapper with ISR caching)
+        ├── types.ts              # TypeScript interfaces (VideoResult, VideoDetail, etc.)
+        └── scraper.ts            # Core scraping engine (TypeScript ESM, cheerio + axios)
 ```
 
 ---
