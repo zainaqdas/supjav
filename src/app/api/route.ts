@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { apiJson } from "@/lib/http";
 
 export async function GET() {
-  return NextResponse.json({
+  return apiJson({
     name: "Supjav Scraper API",
     version: "2.0.0",
     baseUrl: "https://javtiful.com",
