@@ -2,31 +2,18 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 /**
- * Edge-level AI-crawler blocking + HTML CDN caching.
+ * Edge-level AI-crawler blocking.
  *
- * Blocking: every uncached request on this site triggers a live scrape of
- * the source website inside a serverless function. AI crawlers (ClaudeBot,
- * GPTBot, ai_crawler, ...) burned ~186k function invocations in a single
- * day (Aug 1 2026), so known AI/scraping user agents are hard-stopped at
- * the edge with a 403 before they ever reach a route.
+ * Every uncached request on this site triggers a live scrape of the source
+ * website inside a serverless function. AI crawlers (ClaudeBot, GPTBot,
+ * ai_crawler, ...) burned ~186k function invocations in a single day
+ * (Aug 1 2026), so known AI/scraping user agents are hard-stopped at the
+ * edge with a 403 before they ever reach a route.
  *
- * Caching: the pages in this app read `searchParams`, which opts them into
- * dynamic rendering — so page-level `revalidate` exports are ignored and
- * every page view runs a serverless function. To make caching real, we
- * attach CDN `Cache-Control` headers here (Vercel's edge honors s-maxage
- * on responses from serverless functions). This covers both pages and the
- * `/api/*` scraper endpoints, so repeat calls (humans, aggregators, bots)
- * hit the edge instead of re-scraping javtiful.com.
- *
- * Cache tiers:
- * - 3600s: listing pages + listing API endpoints (main, trending,
- *   categories, category, actresses, actress, channels, channel, search,
- *   censored, uncensored, reducing-mosaic)
- * - 300s:  `/video/*` pages and `/api/video/*` — their stream URLs are
- *   Cloudflare R2 pre-signed (~1h validity), so a longer cache could
- *   serve expired streams
- * - never: `/api/csrf-token` (tokens must not be cached) and
- *   `/api/proxy/image` (the route sets its own 24h cache)
+ * Note on caching: this proxy cannot set `Cache-Control` on pass-through
+ * responses — Next.js overwrites it for dynamic routes. Cache headers are
+ * therefore set per-route instead: API routes via src/lib/http.ts, pages
+ * via page-level `revalidate` (static routes only).
  *
  * Note (Next.js 16): this file is `proxy.ts` — the old `middleware.ts`
  * convention is deprecated and has been renamed.
@@ -54,9 +41,6 @@ const BLOCKED_BOTS = [
   'petalbot',
 ];
 
-const CACHE_HOUR = 'public, s-maxage=3600, stale-while-revalidate=3600';
-const CACHE_VIDEO = 'public, s-maxage=300, stale-while-revalidate=300';
-
 export function proxy(request: NextRequest) {
   const userAgent = request.headers.get('user-agent')?.toLowerCase() ?? '';
 
@@ -68,25 +52,6 @@ export function proxy(request: NextRequest) {
         'X-Robots-Tag': 'noindex',
       },
     });
-  }
-
-  const pathname = request.nextUrl.pathname;
-  if (request.method === 'GET') {
-    // Skip endpoints that manage their own caching or must not be cached.
-    if (
-      pathname === '/api/proxy/image' ||
-      pathname.startsWith('/api/csrf-token')
-    ) {
-      return NextResponse.next();
-    }
-
-    const isApi = pathname.startsWith('/api/');
-    // Video endpoints expose pre-signed stream URLs (~1h validity) — cache them short.
-    const isVideo = pathname.startsWith(isApi ? '/api/video/' : '/video/');
-
-    const res = NextResponse.next();
-    res.headers.set('Cache-Control', isVideo ? CACHE_VIDEO : CACHE_HOUR);
-    return res;
   }
 
   return NextResponse.next();
