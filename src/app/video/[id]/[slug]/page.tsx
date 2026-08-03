@@ -5,6 +5,16 @@ import SectionHeader from '@/components/SectionHeader';
 import { getVideoDetail, getTrending } from '@/lib/api';
 import type { VideoDetail, VideoResult } from '@/lib/types';
 
+function formatReleaseDate(value: string): string | null {
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 // Cache short: stream URLs are pre-signed (~1h expiry). CDN cache for /video/* is capped at 300s in src/proxy.ts.
 export const revalidate = 300;
 
@@ -62,7 +72,7 @@ export default async function VideoPage({
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Player */}
-          <VideoPlayer streams={video.streams} poster={video.poster} title={video.title} />
+          <VideoPlayer streams={video.streams} poster={video.poster} />
 
           {/* Title & Meta */}
           <div>
@@ -81,13 +91,9 @@ export default async function VideoPage({
               {video.views && (
                 <span className="text-white/40 text-sm">{video.views} views</span>
               )}
-              {video.releaseDate && (
+              {video.releaseDate && formatReleaseDate(video.releaseDate) && (
                 <span className="text-white/30 text-sm">
-                  {new Date(video.releaseDate).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
+                  {formatReleaseDate(video.releaseDate)}
                 </span>
               )}
             </div>
@@ -180,6 +186,7 @@ export default async function VideoPage({
               <div className="grid grid-cols-3 gap-2">
                 {video.thumbnails.slice(0, 6).map((thumb, i) => (
                   <div key={i} className="aspect-video rounded-lg overflow-hidden bg-[#111]">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- images go through /api/proxy/image; next/image would add image-optimization quota cost */}
                     <img
                       src={thumb}
                       alt={`Screenshot ${i + 1}`}

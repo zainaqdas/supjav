@@ -8,7 +8,7 @@
 </p>
 
 <h1 align="center">
-  Supjav — JAV Streaming Platform
+  JavOnlineHd — JAV Streaming Platform
 </h1>
 
 <p align="center">
@@ -309,7 +309,6 @@ A modern, responsive streaming website built with **Next.js 16**, **TypeScript**
 - **[React 19](https://react.dev/)** — UI library
 - **[TypeScript 5](https://www.typescriptlang.org/)** — Type safety
 - **[Tailwind CSS 4](https://tailwindcss.com/)** — Utility-first CSS
-- **[hls.js](https://github.com/video-dev/hls.js/)** — HLS stream playback
 - **[axios](https://axios-http.com/)** — HTTP client for scraping
 - **[cheerio](https://cheerio.js.org/)** — jQuery-style HTML parsing
 

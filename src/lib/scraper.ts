@@ -224,24 +224,32 @@ function parsePagination($: cheerio.CheerioAPI): PaginationInfo {
     prevPage: null,
   };
 
-  const activePage = $(
-    '.pagination .active, .page-item.active, [class*="pagination"] .active'
-  );
-  if (activePage.length) {
-    pagination.currentPage = parseInt(activePage.text().trim()) || 1;
+  // Current site markup: .front-pagination-link (current page has .is-active)
+  const activeLink = $(".front-pagination-link.is-active");
+  if (activeLink.length) {
+    const activeHref = activeLink.attr("href") || "";
+    const hrefMatch = activeHref.match(/[?&]page=(\d+)/);
+    if (hrefMatch) {
+      pagination.currentPage = parseInt(hrefMatch[1]);
+    } else {
+      const activeText = parseInt(activeLink.text().trim());
+      if (!isNaN(activeText)) pagination.currentPage = activeText;
+    }
   }
 
-  const pageItems = $(
-    '.pagination .page-item, .pagination a, [class*="pagination"] a'
-  );
-  const pageNumbers: number[] = [];
-  pageItems.each((_, el) => {
-    const num = parseInt($(el).text().trim());
-    if (!isNaN(num)) pageNumbers.push(num);
+  // Total pages: the highest page number found across all pagination links.
+  $(
+    ".front-pagination-link, .pagination .page-item, .pagination a, [class*=\"pagination\"] a"
+  ).each((_, el) => {
+    const href = $(el).attr("href") || "";
+    const hrefMatch = href.match(/[?&]page=(\d+)/);
+    const num = hrefMatch
+      ? parseInt(hrefMatch[1])
+      : parseInt($(el).text().trim());
+    if (!isNaN(num) && num > pagination.totalPages) {
+      pagination.totalPages = num;
+    }
   });
-  if (pageNumbers.length > 0) {
-    pagination.totalPages = Math.max(...pageNumbers);
-  }
 
   const nextLink = $(
     '.pagination .next a, .pagination [rel="next"], a[rel="next"]'
@@ -253,6 +261,25 @@ function parsePagination($: cheerio.CheerioAPI): PaginationInfo {
   if (prevLink) pagination.prevPage = prevLink;
 
   return pagination;
+}
+
+// Estimate the total number of results across all pages. The source site
+// does not expose a total count on every listing, so we derive one from the
+// page size and page count: exact on the last page, a full-page estimate
+// otherwise.
+function estimateTotalResults(
+  currentPage: number,
+  totalPages: number,
+  perPage: number,
+  currentCount: number
+): number {
+  if (totalPages <= 1) return currentCount;
+  if (currentPage >= totalPages) {
+    // Last page: exact (final page may be partial)
+    return (totalPages - 1) * perPage + currentCount;
+  }
+  // Earlier page: assume all remaining pages are full
+  return totalPages * perPage;
 }
 
 // ============================================================
@@ -279,11 +306,13 @@ export async function getMain(
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+  const perPage = $(".front-video-card").length || 24;
 
   // Source may only render a few page links even when more pages exist.
-  // If this page has videos, assume there's at least a next page.
+  // Only assume a next page when this page is full of results — an
+  // unfilled page means we're on the last one.
   if (videos.length > 0 && pagination.totalPages <= page) {
-    pagination.totalPages = page + 1;
+    pagination.totalPages = perPage >= 24 ? page + 1 : page;
   } else if (videos.length === 0 && pagination.totalPages <= page) {
     // We've gone past the last page. Show current page as the last one.
     pagination.totalPages = page;
@@ -293,7 +322,12 @@ export async function getMain(
     source: "main",
     page,
     totalPages: pagination.totalPages,
-    totalResults: videos.length,
+    totalResults: estimateTotalResults(
+      pagination.currentPage || page,
+      pagination.totalPages,
+      perPage,
+      videos.length
+    ),
     videos,
   };
 }
@@ -311,9 +345,12 @@ export async function getTrending(
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+  const perPage = $(".front-video-card").length || 24;
 
+  // Only assume a next page when this page is full of results — an
+  // unfilled page means we're on the last one.
   if (videos.length > 0 && pagination.totalPages <= page) {
-    pagination.totalPages = page + 1;
+    pagination.totalPages = perPage >= 24 ? page + 1 : page;
   } else if (videos.length === 0 && pagination.totalPages <= page) {
     pagination.totalPages = page;
   }
@@ -322,7 +359,12 @@ export async function getTrending(
     source: "trending",
     page,
     totalPages: pagination.totalPages,
-    totalResults: videos.length,
+    totalResults: estimateTotalResults(
+      pagination.currentPage || page,
+      pagination.totalPages,
+      perPage,
+      videos.length
+    ),
     videos,
   };
 }
@@ -340,9 +382,12 @@ export async function getCensored(
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+  const perPage = $(".front-video-card").length || 24;
 
+  // Only assume a next page when this page is full of results — an
+  // unfilled page means we're on the last one.
   if (videos.length > 0 && pagination.totalPages <= page) {
-    pagination.totalPages = page + 1;
+    pagination.totalPages = perPage >= 24 ? page + 1 : page;
   } else if (videos.length === 0 && pagination.totalPages <= page) {
     pagination.totalPages = page;
   }
@@ -351,7 +396,12 @@ export async function getCensored(
     source: "censored",
     page,
     totalPages: pagination.totalPages,
-    totalResults: videos.length,
+    totalResults: estimateTotalResults(
+      pagination.currentPage || page,
+      pagination.totalPages,
+      perPage,
+      videos.length
+    ),
     videos,
   };
 }
@@ -369,9 +419,12 @@ export async function getUncensored(
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+  const perPage = $(".front-video-card").length || 24;
 
+  // Only assume a next page when this page is full of results — an
+  // unfilled page means we're on the last one.
   if (videos.length > 0 && pagination.totalPages <= page) {
-    pagination.totalPages = page + 1;
+    pagination.totalPages = perPage >= 24 ? page + 1 : page;
   } else if (videos.length === 0 && pagination.totalPages <= page) {
     pagination.totalPages = page;
   }
@@ -380,7 +433,12 @@ export async function getUncensored(
     source: "uncensored",
     page,
     totalPages: pagination.totalPages,
-    totalResults: videos.length,
+    totalResults: estimateTotalResults(
+      pagination.currentPage || page,
+      pagination.totalPages,
+      perPage,
+      videos.length
+    ),
     videos,
   };
 }
@@ -398,9 +456,12 @@ export async function getReducingMosaic(
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+  const perPage = $(".front-video-card").length || 24;
 
+  // Only assume a next page when this page is full of results — an
+  // unfilled page means we're on the last one.
   if (videos.length > 0 && pagination.totalPages <= page) {
-    pagination.totalPages = page + 1;
+    pagination.totalPages = perPage >= 24 ? page + 1 : page;
   } else if (videos.length === 0 && pagination.totalPages <= page) {
     pagination.totalPages = page;
   }
@@ -409,7 +470,12 @@ export async function getReducingMosaic(
     source: "reducing-mosaic",
     page,
     totalPages: pagination.totalPages,
-    totalResults: videos.length,
+    totalResults: estimateTotalResults(
+      pagination.currentPage || page,
+      pagination.totalPages,
+      perPage,
+      videos.length
+    ),
     videos,
   };
 }
@@ -468,13 +534,19 @@ export async function getCategory(
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+  const perPage = $(".front-video-card").length || 24;
 
   return {
     source: "category",
     category: slug,
     page: pagination.currentPage || page,
     totalPages: pagination.totalPages,
-    totalResults: videos.length,
+    totalResults: estimateTotalResults(
+      pagination.currentPage || page,
+      pagination.totalPages,
+      perPage,
+      videos.length
+    ),
     videos,
   };
 }
@@ -540,10 +612,16 @@ export async function getActresses(
 
   const actresses = parseActressItems($);
   const totalPages = parseListMaxPage($);
+  const perPage = actresses.length || 24;
 
   return {
     source: "actresses",
-    totalActresses: actresses.length,
+    totalActresses: estimateTotalResults(
+      page,
+      totalPages,
+      perPage,
+      actresses.length
+    ),
     actresses,
     page,
     totalPages,
@@ -564,13 +642,19 @@ export async function getActress(
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+  const perPage = $(".front-video-card").length || 24;
 
   return {
     source: "actress",
     actress: slug,
     page: pagination.currentPage || page,
     totalPages: pagination.totalPages,
-    totalResults: videos.length,
+    totalResults: estimateTotalResults(
+      pagination.currentPage || page,
+      pagination.totalPages,
+      perPage,
+      videos.length
+    ),
     videos,
   };
 }
@@ -620,10 +704,16 @@ export async function getChannels(
 
   const channels = parseChannelItems($);
   const totalPages = parseListMaxPage($);
+  const perPage = channels.length || 24;
 
   return {
     source: "channels",
-    totalChannels: channels.length,
+    totalChannels: estimateTotalResults(
+      page,
+      totalPages,
+      perPage,
+      channels.length
+    ),
     channels,
     page,
     totalPages,
@@ -644,13 +734,19 @@ export async function getChannel(
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+  const perPage = $(".front-video-card").length || 24;
 
   return {
     source: "channel",
     channel: slug,
     page: pagination.currentPage || page,
     totalPages: pagination.totalPages,
-    totalResults: videos.length,
+    totalResults: estimateTotalResults(
+      pagination.currentPage || page,
+      pagination.totalPages,
+      perPage,
+      videos.length
+    ),
     videos,
   };
 }
@@ -671,13 +767,19 @@ export async function search(
 
   const videos = parseVideoCards($);
   const pagination = parsePagination($);
+  const perPage = $(".front-video-card").length || 24;
 
   return {
     source: "search",
     query,
     page: pagination.currentPage || page,
     totalPages: pagination.totalPages,
-    totalResults: videos.length,
+    totalResults: estimateTotalResults(
+      pagination.currentPage || page,
+      pagination.totalPages,
+      perPage,
+      videos.length
+    ),
     videos,
   };
 }
@@ -723,7 +825,7 @@ export async function getVideoDetail(
   if (configScript) {
     try {
       config = JSON.parse(configScript);
-    } catch (_e) {
+    } catch {
       const allScripts = $('script[type="application/json"]');
       allScripts.each((_, el) => {
         try {
@@ -732,7 +834,7 @@ export async function getVideoDetail(
             config = parsed;
             return false;
           }
-        } catch (_ex) {
+        } catch {
           // ignore
         }
       });
@@ -844,7 +946,7 @@ export async function getVideoDetail(
     thumbnail: thumbnails.length > 0 ? thumbnails[0] : null,
     previewVideo: previewSources.length > 0 ? previewSources[0] : null,
     duration: null,
-    quality: (config.defaultQuality as number)
+    quality: typeof config.defaultQuality === "number"
       ? `${config.defaultQuality}p`
       : null,
     views: null,
@@ -919,7 +1021,7 @@ export async function getComments(videoId: string): Promise<Record<string, unkno
     });
 
     return { videoId, comments, total: comments.length };
-  } catch (_err) {
+  } catch {
     return { videoId, error: "Failed to fetch comments", comments: [] };
   }
 }
@@ -936,7 +1038,7 @@ export async function getCsrfToken(): Promise<Record<string, unknown>> {
       },
     });
     return data;
-  } catch (_err) {
+  } catch {
     return { error: "Failed to get CSRF token" };
   }
 }

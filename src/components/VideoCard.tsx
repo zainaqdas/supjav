@@ -17,6 +17,7 @@ export default function VideoCard({ video, index = 0 }: VideoCardProps) {
       {/* Thumbnail */}
       <div className="relative aspect-video overflow-hidden bg-[#111]">
         {video.thumbnail ? (
+          // eslint-disable-next-line @next/next/no-img-element -- images go through /api/proxy/image; next/image would add image-optimization quota cost
           <img
             src={video.thumbnail}
             alt={video.title}

@@ -220,25 +220,3 @@ export async function getVideoDetail(id: string, slug: string): Promise<VideoDet
   return mapVideoDetail(data);
 }
 
-export async function getVideoStream(id: string): Promise<{
-  id: string;
-  title: string;
-  streams: VideoDetail['streams'];
-  qualityOptions: number[];
-  defaultQuality: number | null;
-}> {
-  // getVideoDetail fetches all video data including streams.
-  // For the stream-specific endpoint, extract just stream info.
-  const detail = await scraper.getVideoDetail(id);
-  return {
-    id: detail.id,
-    title: detail.title,
-    streams: detail.streams.map((s) => ({
-      url: s.url || '',
-      type: s.type || '',
-      quality: s.quality || '',
-    })),
-    qualityOptions: detail.qualityOptions,
-    defaultQuality: detail.defaultQuality,
-  };
-}

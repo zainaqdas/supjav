@@ -31,7 +31,7 @@ export default async function ChannelsPage({
         <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-br from-red-600/10 via-blue-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
         <SectionHeader
           title="Channels"
-          subtitle={`Page ${data.page || page} of ${data.totalPages || 1} — ${data.totalChannels || channels.length} channels on this page`}
+          subtitle={`Page ${data.page || page} of ${data.totalPages || 1} — ${data.totalChannels || channels.length} channels`}
         />
       </div>
 

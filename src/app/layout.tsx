@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+
+const inter = Inter({ subsets: ['latin'] });
 
 // Pages use page-level `revalidate` for ISR caching (60s-300s).
 // No force-dynamic here — that would override page-level revalidate
@@ -23,7 +26,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col">
+      <body className={`${inter.className} min-h-screen flex flex-col`}>
         <Navbar />
         <main className="flex-1 pt-20">{children}</main>
         <Footer />

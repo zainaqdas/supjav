@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         "Access-Control-Allow-Methods": "GET, OPTIONS",
       },
     });
-  } catch (_err) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to fetch image from upstream" },
       { status: 502 }

@@ -22,7 +22,7 @@ html {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  /* font-family is provided by next/font (Inter) via layout.tsx */
   background: #0a0a0f;
   color: #e2e8f0;
   min-height: 100vh;

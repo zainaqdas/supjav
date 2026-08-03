@@ -6,10 +6,9 @@ import type { VideoStream } from '@/lib/types';
 interface VideoPlayerProps {
   streams: VideoStream[];
   poster?: string | null;
-  title?: string;
 }
 
-export default function VideoPlayer({ streams, poster, title }: VideoPlayerProps) {
+export default function VideoPlayer({ streams, poster }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentQuality, setCurrentQuality] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -159,7 +158,7 @@ export default function VideoPlayer({ streams, poster, title }: VideoPlayerProps
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Play/Pause */}
-            <button onClick={togglePlay} className="text-white hover:text-red-400 transition-colors">
+            <button onClick={togglePlay} aria-label={isPlaying ? 'Pause' : 'Play'} className="text-white hover:text-red-400 transition-colors">
               {isPlaying ? (
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
@@ -173,7 +172,7 @@ export default function VideoPlayer({ streams, poster, title }: VideoPlayerProps
 
             {/* Volume */}
             <div className="hidden sm:flex items-center gap-2 group/vol">
-              <button onClick={toggleMute} className="text-white/70 hover:text-white transition-colors">
+              <button onClick={toggleMute} aria-label={isMuted ? 'Unmute' : 'Mute'} className="text-white/70 hover:text-white transition-colors">
                 {isMuted || volume === 0 ? (
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
@@ -224,6 +223,7 @@ export default function VideoPlayer({ streams, poster, title }: VideoPlayerProps
             {/* Fullscreen */}
             <button
               onClick={() => videoRef.current?.requestFullscreen()}
+              aria-label="Fullscreen"
               className="text-white/70 hover:text-white transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

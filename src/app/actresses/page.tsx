@@ -31,7 +31,7 @@ export default async function ActressesPage({
         <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-br from-red-600/10 via-blue-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
         <SectionHeader
           title="Actresses"
-          subtitle={`Page ${data.page || page} of ${data.totalPages || 1} — ${data.totalActresses || actresses.length} actresses on this page`}
+          subtitle={`Page ${data.page || page} of ${data.totalPages || 1} — ${data.totalActresses || actresses.length} actresses`}
         />
       </div>
 
