@@ -686,18 +686,27 @@ export async function getVideoDetail(
   id: string,
   slug?: string
 ): Promise<VideoDetail> {
-  let url: string;
+  let data: string;
   if (slug) {
-    url = `/video/${id}/${slug}`;
+    const res = await client.get(`/video/${id}/${slug}`);
+    data = res.data;
   } else {
+    // The source 301-redirects /video/{id} to /video/{id}/{slug}; axios
+    // follows it and returns the watch page. Derive the slug from the page's
+    // canonical URL. The old search-based fallback failed because numeric-only
+    // search queries return no results — which broke /api/video/:id and
+    // /api/video/:id/stream with "Cannot find video slug".
     try {
-      const searchRes = await client.get(`/search?q=${id}`);
-      const search$ = cheerio.load(searchRes.data);
-      const firstLink = search$(`a[href*="/video/${id}/"]`)
-        .first()
-        .attr("href");
-      if (firstLink) {
-        url = firstLink;
+      const res = await client.get(`/video/${id}`);
+      data = res.data;
+      const page$ = cheerio.load(data);
+      const canonical =
+        page$('link[rel="canonical"]').attr("href") ||
+        page$('meta[property="og:url"]').attr("content") ||
+        "";
+      const slugMatch = canonical.match(/\/video\/\d+\/([^/?#]+)/);
+      if (slugMatch) {
+        slug = slugMatch[1];
       } else {
         throw new Error(
           "Cannot find video slug. Please provide both id and slug (e.g., /api/video/108365/hrsm-146)"
@@ -705,13 +714,10 @@ export async function getVideoDetail(
       }
     } catch (e) {
       if (e instanceof Error && e.message.includes("Cannot find")) throw e;
-      throw new Error(
-        `Video /video/${id} not found. The site requires a slug. Try /api/video/${id}/<slug>`
-      );
+      throw new Error(`Video /video/${id} not found.`);
     }
   }
 
-  const { data } = await client.get(url);
   const $ = cheerio.load(data);
 
   // Extract the frontWatchConfig JSON blob
