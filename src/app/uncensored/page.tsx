@@ -6,8 +6,8 @@ import SortSelector from '@/components/SortSelector';
 import { getUncensored } from '@/lib/api';
 import type { VideoResult } from '@/lib/types';
 
-// ISR: cache for 60s to reduce calls to source website
-export const revalidate = 60;
+// ISR: cache for 1 hour to reduce calls to source website
+export const revalidate = 3600;
 
 export default async function UncensoredPage({
   searchParams,

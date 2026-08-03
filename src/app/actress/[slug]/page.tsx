@@ -4,8 +4,8 @@ import Pagination from '@/components/Pagination';
 import { getActress } from '@/lib/api';
 import type { VideoResult } from '@/lib/types';
 
-// ISR: cache for 120s to reduce calls to source website
-export const revalidate = 120;
+// ISR: cache for 1 hour to reduce calls to source website
+export const revalidate = 3600;
 
 async function getActressVideos(slug: string, page: number): Promise<{ videos: VideoResult[]; totalPages: number; page: number; totalResults: number }> {
   try {

@@ -5,7 +5,7 @@ import SectionHeader from '@/components/SectionHeader';
 import { getVideoDetail, getTrending } from '@/lib/api';
 import type { VideoDetail, VideoResult } from '@/lib/types';
 
-// ISR: cache for 300s (5 min) — video detail is heavy and rarely changes
+// Cache short: stream URLs are pre-signed (~1h expiry). CDN cache for /video/* is capped at 300s in src/proxy.ts.
 export const revalidate = 300;
 
 async function getVideo(id: string, slug: string): Promise<VideoDetail | null> {

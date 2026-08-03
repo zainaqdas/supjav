@@ -4,8 +4,8 @@ import Pagination from '@/components/Pagination';
 import { getActresses } from '@/lib/api';
 import type { ActressItem } from '@/lib/types';
 
-// ISR: cache for 60s to reduce calls to source website
-export const revalidate = 60;
+// ISR: cache for 1 hour to reduce calls to source website
+export const revalidate = 3600;
 
 export default async function ActressesPage({
   searchParams,
