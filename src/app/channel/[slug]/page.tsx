@@ -6,9 +6,8 @@ import Pagination from '@/components/Pagination';
 import SortSelector, { DETAIL_SORT_OPTIONS } from '@/components/SortSelector';
 import JsonLd from '@/components/JsonLd';
 import { getChannel } from '@/lib/api';
+import { SITE_URL } from '@/lib/site';
 import type { VideoResult } from '@/lib/types';
-
-const SITE_URL = 'https://javhdonline.vercel.app';
 
 // ISR: cache for 1 hour to reduce calls to source website
 export const revalidate = 3600;
@@ -27,11 +26,15 @@ const getChannelVideos = cache(async function getChannelVideos(
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ page?: string; sort?: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const data = await getChannelVideos(slug, 1);
+  const { page: pageStr, sort } = await searchParams;
+  const page = parseInt(pageStr || '1');
+  const data = await getChannelVideos(slug, page, sort);
   const name = data.name || slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   return {
     title: `${name} JAV Videos — Watch Studio Movies`,

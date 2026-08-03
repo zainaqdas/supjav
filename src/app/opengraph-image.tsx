@@ -78,11 +78,9 @@ export default function OpengraphImage() {
               }}
             />
           </div>
-          <div style={{ display: 'flex', fontSize: 88, fontWeight: 800, color: '#ffffff', letterSpacing: -2 }}>
-            JavOnline
-            <span style={{ background: 'linear-gradient(135deg, #f87171, #60a5fa)', color: 'transparent', backgroundClip: 'text' }}>
-              HD
-            </span>
+          <div style={{ display: 'flex', fontSize: 88, fontWeight: 800, letterSpacing: -2 }}>
+            <span style={{ color: '#ffffff' }}>JavOnline</span>
+            <span style={{ color: '#f87171' }}>HD</span>
           </div>
         </div>
 

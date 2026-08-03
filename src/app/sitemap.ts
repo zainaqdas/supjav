@@ -1,10 +1,11 @@
 import type { MetadataRoute } from 'next';
 import { getCategories, getActresses, getChannels } from '@/lib/api';
+import { SITE_URL } from '@/lib/site';
 
 // Rebuild at most once a day — the source's entity lists don't change often.
 export const revalidate = 86400;
 
-const BASE = 'https://javhdonline.vercel.app';
+const BASE = SITE_URL;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [

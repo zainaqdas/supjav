@@ -6,9 +6,8 @@ import VideoGrid from '@/components/VideoGrid';
 import SectionHeader from '@/components/SectionHeader';
 import JsonLd from '@/components/JsonLd';
 import { getVideoDetail, getTrending } from '@/lib/api';
+import { SITE_URL } from '@/lib/site';
 import type { VideoDetail, VideoResult } from '@/lib/types';
-
-const SITE_URL = 'https://javhdonline.vercel.app';
 
 function formatIsoDuration(value: string | null): string | undefined {
   if (!value) return undefined;
@@ -18,6 +17,18 @@ function formatIsoDuration(value: string | null): string | undefined {
   const iso =
     (h ? `${h}H` : '') + (m ? `${m}M` : '') + `${s}S`;
   return `PT${iso}`;
+}
+
+// Parse human view counts like "214.7K" or "1,200,345" into an integer.
+function parseViewCount(value: string | null): number | null {
+  if (!value) return null;
+  const match = value.match(/([\d.,]+)\s*([KkMmBb]?)/);
+  if (!match) return null;
+  const num = parseFloat(match[1].replace(/,/g, ''));
+  if (isNaN(num)) return null;
+  const suffix = match[2].toLowerCase();
+  const mult = suffix === 'k' ? 1e3 : suffix === 'm' ? 1e6 : suffix === 'b' ? 1e9 : 1;
+  return Math.round(num * mult);
 }
 
 function formatCommentDate(value: string | null): string {
@@ -163,11 +174,11 @@ export default async function VideoPage({
           contentUrl: `${SITE_URL}/video/${video.id}/${video.slug}`,
           embedUrl: video.endpoints?.embed || undefined,
           interactionStatistic:
-            video.views && /\d/.test(video.views)
+            parseViewCount(video.views) != null
               ? {
                   '@type': 'InteractionCounter',
                   interactionType: { '@type': 'WatchAction' },
-                  userInteractionCount: parseInt(video.views.replace(/[^\d]/g, ''), 10) || undefined,
+                  userInteractionCount: parseViewCount(video.views),
                 }
               : undefined,
         }}

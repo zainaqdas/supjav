@@ -4,14 +4,13 @@ import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
+import { SITE_URL } from '@/lib/site';
 
 const inter = Inter({ subsets: ['latin'] });
 
 // Pages use page-level `revalidate` for ISR caching (60s-300s).
 // No force-dynamic here — that would override page-level revalidate
 // and cause every request to hit javtiful.com on every render.
-
-const SITE_URL = 'https://javhdonline.vercel.app';
 
 export const viewport: Viewport = {
   width: 'device-width',
