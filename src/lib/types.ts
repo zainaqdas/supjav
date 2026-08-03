@@ -10,6 +10,7 @@ export interface VideoEndpoints {
   downloadLink: string;
   favorite: string;
   report: string;
+  react: string;
   embed: string;
 }
 

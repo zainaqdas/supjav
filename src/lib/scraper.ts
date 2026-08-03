@@ -159,6 +159,8 @@ interface PaginationInfo {
   totalPages: number;
   nextPage: string | null;
   prevPage: string | null;
+  /** False when the Next link carries .is-disabled (we're on the true last page). */
+  hasNext: boolean;
 }
 
 function parsePagination($: cheerio.CheerioAPI): PaginationInfo {
@@ -167,6 +169,7 @@ function parsePagination($: cheerio.CheerioAPI): PaginationInfo {
     totalPages: 1,
     nextPage: null,
     prevPage: null,
+    hasNext: false,
   };
 
   // Current site markup: .front-pagination-link (current page has .is-active)
@@ -196,14 +199,19 @@ function parsePagination($: cheerio.CheerioAPI): PaginationInfo {
     }
   });
 
-  const nextLink = $(
-    '.pagination .next a, .pagination [rel="next"], a[rel="next"]'
-  ).attr("href");
-  const prevLink = $(
-    '.pagination .prev a, .pagination [rel="prev"], a[rel="prev"]'
-  ).attr("href");
-  if (nextLink) pagination.nextPage = nextLink;
-  if (prevLink) pagination.prevPage = prevLink;
+  // Next/Previous: the site renders them as .front-pagination-link with the
+  // text "Next"/"Previous", adding .is-disabled on the first/last page.
+  $(".front-pagination-link").each((_, el) => {
+    const text = $(el).text().trim().toLowerCase();
+    const href = $(el).attr("href") || "";
+    const disabled = $(el).hasClass("is-disabled");
+    if (text === "next") {
+      pagination.hasNext = !disabled;
+      if (!disabled) pagination.nextPage = href;
+    } else if (text === "previous" && !disabled) {
+      pagination.prevPage = href;
+    }
+  });
 
   return pagination;
 }
@@ -257,11 +265,14 @@ async function getVideoListing(
   const pagination = parsePagination($);
   const perPage = $(".front-video-card").length || 24;
 
-  // Source may only render a few page links even when more pages exist.
-  // Only assume a next page when this page is full of results — an
-  // unfilled page means we're on the last one.
+  // Video listings render a sliding window of page links (current ± a few),
+  // so the highest link is not the true last page. The Next link carries
+  // .is-disabled only on the real last page — use it so we never invent a
+  // phantom page past the end. (Actress/channel widgets embed the real last
+  // page, so parsed totalPages already exceeds `page` there and this is a
+  // no-op.)
   if (videos.length > 0 && pagination.totalPages <= page) {
-    pagination.totalPages = perPage >= 24 ? page + 1 : page;
+    pagination.totalPages = pagination.hasNext ? page + 1 : page;
   } else if (videos.length === 0 && pagination.totalPages <= page) {
     // We've gone past the last page. Show current page as the last one.
     pagination.totalPages = page;
@@ -881,6 +892,18 @@ export async function getVideoDetail(
 
   const comments = parseComments($);
 
+  // Real action endpoints exposed by the page via data-*endpoint attrs.
+  // Prefer the DOM values so we stay correct if the site changes them.
+  const pageEndpoint = (needle: string): string | null => {
+    let found: string | null = null;
+    $("[data-endpoint], [data-download-endpoint]").each((_, el) => {
+      const val =
+        $(el).attr("data-endpoint") || $(el).attr("data-download-endpoint") || "";
+      if (val && val.includes(needle) && found === null) found = val;
+    });
+    return found;
+  };
+
   const computedSlug =
     slug ||
     (config.videoTitle
@@ -929,10 +952,12 @@ export async function getVideoDetail(
       playlist:
         ((config.playlist as { endpoint?: string })?.endpoint) ||
         `/video/${id}/playlist`,
-      downloadLink: `/video/${id}/download-link`,
-      favorite: `/video/${id}/favorite`,
-      report: `/video/${id}/report`,
-      embed: ld.embedUrl || `https://javtiful.com/embed/${id}`,
+      downloadLink:
+        pageEndpoint("download-link") || `/video/${id}/download-link`,
+      favorite: pageEndpoint("/favorite") || `/video/${id}/favorite`,
+      report: pageEndpoint("/report") || `/video/${id}/report`,
+      react: pageEndpoint("/react") || `/video/${id}/react`,
+      embed: ld.embedUrl || `${BASE_URL}/embed/${id}`,
     },
     related: dedupedRelated,
     comments,

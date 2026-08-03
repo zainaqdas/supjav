@@ -8,6 +8,7 @@ export async function GET() {
     endpoints: {
       main: "/api/main",
       trending: "/api/trending",
+      videos: "/api/videos?page=1&sort=added_week",
       categories: "/api/categories",
       category: "/api/category/:slug",
       actresses: "/api/actresses",
@@ -25,6 +26,7 @@ export async function GET() {
     queryParams: {
       page: "Page number for paginated results (default: 1)",
       q: "Search query (for /api/search)",
+      sort: "Sort order for /api/videos (added_today, added_week, added_month, most_liked, most_viewed, popular_today, popular_week, popular_month)",
     },
   });
 }
