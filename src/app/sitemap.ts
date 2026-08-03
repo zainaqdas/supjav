@@ -18,6 +18,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/categories`, changeFrequency: 'daily', priority: 0.7 },
     { url: `${BASE}/actresses`, changeFrequency: 'weekly', priority: 0.6 },
     { url: `${BASE}/channels`, changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${BASE}/about`, changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${BASE}/contact`, changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${BASE}/privacy-policy`, changeFrequency: 'yearly', priority: 0.2 },
+    { url: `${BASE}/terms`, changeFrequency: 'yearly', priority: 0.2 },
   ];
 
   const [cats, acts, chs] = await Promise.all([

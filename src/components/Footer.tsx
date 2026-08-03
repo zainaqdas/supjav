@@ -59,13 +59,18 @@ export default function Footer() {
 
           {/* About */}
           <div>
-            <h4 className="text-white/80 font-semibold mb-4 text-sm uppercase tracking-wider">About</h4>
-            <p className="text-white/30 text-sm leading-relaxed">
-              Built with Next.js & TypeScript. Powered by a custom scraping API. Red & Blue theme.
-            </p>
-            <div className="flex gap-3 mt-4">
-              <div className="w-3 h-3 rounded-full bg-red-500 shadow-lg shadow-red-500/50" />
-              <div className="w-3 h-3 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50" />
+            <h4 className="text-white/80 font-semibold mb-4 text-sm uppercase tracking-wider">Company</h4>
+            <div className="space-y-2">
+              {[
+                { href: '/about', label: 'About Us' },
+                { href: '/contact', label: 'Contact Us' },
+                { href: '/privacy-policy', label: 'Privacy Policy' },
+                { href: '/terms', label: 'Terms & Conditions' },
+              ].map((link) => (
+                <Link key={link.href} href={link.href} className="block text-white/40 hover:text-red-400 text-sm transition-colors">
+                  {link.label}
+                </Link>
+              ))}
             </div>
           </div>
         </div>
@@ -75,9 +80,10 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} JavOnlineHd. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
-            <span className="text-white/20 text-xs">Privacy</span>
-            <span className="text-white/20 text-xs">Terms</span>
-            <span className="text-white/20 text-xs">Contact</span>
+            <Link href="/about" className="text-white/20 hover:text-white/50 text-xs transition-colors">About</Link>
+            <Link href="/privacy-policy" className="text-white/20 hover:text-white/50 text-xs transition-colors">Privacy</Link>
+            <Link href="/terms" className="text-white/20 hover:text-white/50 text-xs transition-colors">Terms</Link>
+            <Link href="/contact" className="text-white/20 hover:text-white/50 text-xs transition-colors">Contact</Link>
           </div>
         </div>
       </div>

@@ -1,0 +1,13 @@
+{
+  "name": "JavOnlineHD — Watch JAV Online in HD",
+  "short_name": "JavOnlineHD",
+  "description": "Watch JAV online in HD for free. Stream censored and uncensored Japanese adult videos by category, actress, and studio.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "icons": [
+    { "src": "/favicon-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon-512x512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
