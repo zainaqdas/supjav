@@ -77,7 +77,11 @@ export async function generateMetadata({
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
   const title = video?.title || `${fallbackTitle} JAV Video`;
-  const code = video?.videoCode ? ` (${video.videoCode})` : '';
+  const code = video?.videoCode
+    ? title.toUpperCase().includes(video.videoCode.toUpperCase())
+      ? ''
+      : ` (${video.videoCode})`
+    : '';
   const description =
     video?.description && video.description.length > 0
       ? `${video.description.slice(0, 152)}${video.description.length > 152 ? '…' : ''}`
