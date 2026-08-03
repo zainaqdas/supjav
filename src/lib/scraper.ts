@@ -246,6 +246,15 @@ function buildUrl(basePath: string, page: number, sort?: string): string {
   return qs ? `${basePath}?${qs}` : basePath;
 }
 
+// Extract the real entity name from the detail page h1, e.g.
+// "Hamasaki Mao JAV Videos - Latest HD Updates" -> "Hamasaki Mao".
+// Falls back to the slug when the page exposes no parseable h1.
+function parseDetailName($: cheerio.CheerioAPI, fallback: string): string {
+  const h1 = $("h1").first().text().trim();
+  const match = h1.match(/^(.+?)\s+JAV Videos/i);
+  return match ? match[1].trim() : fallback;
+}
+
 // ============================================================
 // VIDEO LISTINGS: main, trending, censored, uncensored,
 // reducing-mosaic all share the same markup — only the path
@@ -457,10 +466,10 @@ export async function getCategories(): Promise<{
 // ============================================================
 export async function getCategory(
   slug: string,
-  page = 1
-): Promise<PaginatedResponse<VideoResult> & { category: string }> {
-  const url =
-    page > 1 ? `/category/${slug}?page=${page}` : `/category/${slug}`;
+  page = 1,
+  sort?: string
+): Promise<PaginatedResponse<VideoResult> & { category: string; name: string }> {
+  const url = buildUrl(`/category/${slug}`, page, sort);
   const { data } = await client.get(url);
   const $ = cheerio.load(data);
 
@@ -471,6 +480,7 @@ export async function getCategory(
   return {
     source: "category",
     category: slug,
+    name: parseDetailName($, slug),
     page: pagination.currentPage || page,
     totalPages: pagination.totalPages,
     totalResults: estimateTotalResults(
@@ -565,10 +575,10 @@ export async function getActresses(
 // ============================================================
 export async function getActress(
   slug: string,
-  page = 1
-): Promise<PaginatedResponse<VideoResult> & { actress: string }> {
-  const url =
-    page > 1 ? `/actress/${slug}?page=${page}` : `/actress/${slug}`;
+  page = 1,
+  sort?: string
+): Promise<PaginatedResponse<VideoResult> & { actress: string; name: string }> {
+  const url = buildUrl(`/actress/${slug}`, page, sort);
   const { data } = await client.get(url);
   const $ = cheerio.load(data);
 
@@ -579,6 +589,7 @@ export async function getActress(
   return {
     source: "actress",
     actress: slug,
+    name: parseDetailName($, slug),
     page: pagination.currentPage || page,
     totalPages: pagination.totalPages,
     totalResults: estimateTotalResults(
@@ -657,10 +668,10 @@ export async function getChannels(
 // ============================================================
 export async function getChannel(
   slug: string,
-  page = 1
-): Promise<PaginatedResponse<VideoResult> & { channel: string }> {
-  const url =
-    page > 1 ? `/channel/${slug}?page=${page}` : `/channel/${slug}`;
+  page = 1,
+  sort?: string
+): Promise<PaginatedResponse<VideoResult> & { channel: string; name: string }> {
+  const url = buildUrl(`/channel/${slug}`, page, sort);
   const { data } = await client.get(url);
   const $ = cheerio.load(data);
 
@@ -671,6 +682,7 @@ export async function getChannel(
   return {
     source: "channel",
     channel: slug,
+    name: parseDetailName($, slug),
     page: pagination.currentPage || page,
     totalPages: pagination.totalPages,
     totalResults: estimateTotalResults(

@@ -2,7 +2,13 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 
-const SORT_OPTIONS = [
+export interface SortOption {
+  value: string;
+  label: string;
+}
+
+// Full sort set used by /videos, /censored, /uncensored, /reducing-mosaic.
+export const DEFAULT_SORT_OPTIONS: SortOption[] = [
   { value: '', label: 'Default' },
   { value: 'popular_week', label: 'Popular This Week' },
   { value: 'popular_today', label: 'Popular Today' },
@@ -14,7 +20,22 @@ const SORT_OPTIONS = [
   { value: 'added_month', label: 'Added This Month' },
 ];
 
-export default function SortSelector() {
+// Sort set exposed by the source on /category, /actress and /channel pages.
+// Those pages only honor `popular` + the added_* values — other values are
+// silently ignored, so we only offer the ones the source accepts.
+export const DETAIL_SORT_OPTIONS: SortOption[] = [
+  { value: '', label: 'Default' },
+  { value: 'popular', label: 'Popular' },
+  { value: 'added_today', label: 'Added Today' },
+  { value: 'added_week', label: 'Added This Week' },
+  { value: 'added_month', label: 'Added This Month' },
+];
+
+interface SortSelectorProps {
+  options?: SortOption[];
+}
+
+export default function SortSelector({ options = DEFAULT_SORT_OPTIONS }: SortSelectorProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -43,7 +64,7 @@ export default function SortSelector() {
         paddingRight: '36px',
       }}
     >
-      {SORT_OPTIONS.map((opt) => (
+      {options.map((opt) => (
         <option key={opt.value} value={opt.value} className="bg-[#1a1a2e] text-white">
           {opt.label}
         </option>

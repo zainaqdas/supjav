@@ -122,12 +122,15 @@ export interface SearchResponse extends PaginatedResponse<VideoResult> {
 
 export interface CategoryDetailResponse extends PaginatedResponse<VideoResult> {
   category: string;
+  name: string;
 }
 
 export interface ActressDetailResponse extends PaginatedResponse<VideoResult> {
   actress: string;
+  name: string;
 }
 
 export interface ChannelDetailResponse extends PaginatedResponse<VideoResult> {
   channel: string;
+  name: string;
 }

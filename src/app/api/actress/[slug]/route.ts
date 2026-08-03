@@ -10,7 +10,8 @@ export async function GET(
     const { slug } = await params;
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const result = await getActress(slug, page);
+    const sort = searchParams.get("sort") || undefined;
+    const result = await getActress(slug, page, sort);
     return apiJson(result);
   } catch (err) {
     return NextResponse.json(

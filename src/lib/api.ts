@@ -148,11 +148,12 @@ export async function getCategories(): Promise<CategoryListResponse> {
   };
 }
 
-export async function getCategory(slug: string, page = 1): Promise<CategoryDetailResponse> {
-  const data = await scraper.getCategory(slug, page);
+export async function getCategory(slug: string, page = 1, sort?: string): Promise<CategoryDetailResponse> {
+  const data = await scraper.getCategory(slug, page, sort);
   return {
     source: data.source,
     category: data.category,
+    name: data.name,
     page: data.page,
     totalPages: data.totalPages,
     totalResults: data.totalResults,
@@ -176,11 +177,12 @@ export async function getActresses(page = 1): Promise<ActressListResponse> {
   };
 }
 
-export async function getActress(slug: string, page = 1): Promise<ActressDetailResponse> {
-  const data = await scraper.getActress(slug, page);
+export async function getActress(slug: string, page = 1, sort?: string): Promise<ActressDetailResponse> {
+  const data = await scraper.getActress(slug, page, sort);
   return {
     source: data.source,
     actress: data.actress,
+    name: data.name,
     page: data.page,
     totalPages: data.totalPages,
     totalResults: data.totalResults,
@@ -204,11 +206,12 @@ export async function getChannels(page = 1): Promise<ChannelListResponse> {
   };
 }
 
-export async function getChannel(slug: string, page = 1): Promise<ChannelDetailResponse> {
-  const data = await scraper.getChannel(slug, page);
+export async function getChannel(slug: string, page = 1, sort?: string): Promise<ChannelDetailResponse> {
+  const data = await scraper.getChannel(slug, page, sort);
   return {
     source: data.source,
     channel: data.channel,
+    name: data.name,
     page: data.page,
     totalPages: data.totalPages,
     totalResults: data.totalResults,
