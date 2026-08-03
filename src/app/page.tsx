@@ -4,11 +4,83 @@ import SectionHeader from '@/components/SectionHeader';
 import VideoGrid from '@/components/VideoGrid';
 import VideoCard from '@/components/VideoCard';
 import SortSelector from '@/components/SortSelector';
+import JsonLd from '@/components/JsonLd';
 import { getVideos, getTrending, getCensored, getUncensored } from '@/lib/api';
 import type { VideoResult } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
 export const revalidate = 3600;
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'Is JavOnlineHD really free?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes, JavOnlineHD is completely free to use. You can watch JAV online in HD without paying anything — there are no paywalls, no premium tiers, and no hidden fees. Just open a video and start streaming instantly.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Do I need to create an account to watch JAV videos?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No account is required. You can browse categories, actresses, and studios and stream free JAV videos immediately. There is no sign-up, no email verification, and no login wall standing between you and the content.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What is the difference between censored, uncensored, and reducing mosaic JAV?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Censored JAV is released with the standard mosaic pixelation applied by mainstream Japanese studios. Uncensored JAV is released without mosaic. Reducing mosaic JAV uses only partial or light mosaic treatment. JavOnlineHD has dedicated sections for all three, so you can browse each style separately.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can I watch JAV online on my phone or tablet?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Absolutely. JavOnlineHD is built mobile-first, so the layout adapts to any screen size and the video player is fully touch-friendly, with quality selection and fullscreen support. You can watch Japanese adult videos in HD on Android, iPhone, and iPad without downloading any app.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What video quality is available?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Most videos stream in HD with multiple quality options. The player includes a quality selector so you can switch between available resolutions to match your connection speed, and playback starts fast thanks to CDN delivery and edge caching.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How often are new JAV videos added?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'New releases are added continuously. The homepage shows the latest uploads, and the trending section highlights the most popular videos of the week, so there is always fresh Japanese adult content to discover.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How can I find videos by actress, studio, or category?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Use the search bar to look up titles, JAV codes, or actresses directly. You can also browse the dedicated actresses, channels, and categories pages, where every JAV movie is grouped into one filmography or genre list with video counts and sorting.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Is JavOnlineHD suitable for everyone?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No. JavOnlineHD contains adult content and is strictly intended for adults aged 18 and over. All videos are clearly labeled, the platform shows no intrusive ads, and we protect real viewers by blocking AI crawlers and scrapers.',
+      },
+    },
+  ],
+} satisfies Record<string, unknown>;
 
 export default async function Home({
   searchParams,
@@ -266,6 +338,87 @@ export default async function Home({
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SEO FAQ — visible Q&A + FAQPage JSON-LD */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-10">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-white/50 mb-4">
+              <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-red-500 to-blue-500" />
+              Frequently Asked Questions
+            </span>
+            <h2 className="text-3xl lg:text-4xl font-bold mb-3">
+              <span className="gradient-text">JAV Streaming FAQ</span>
+            </h2>
+            <p className="text-white/40">
+              Everything you need to know about watching JAV online with JavOnlineHD.
+            </p>
+          </div>
+
+          <JsonLd data={faqSchema} />
+
+          <div className="space-y-3">
+            {[
+              {
+                q: 'Is JavOnlineHD really free?',
+                a: 'Yes, JavOnlineHD is completely free to use. You can watch JAV online in HD without paying anything — there are no paywalls, no premium tiers, and no hidden fees. Just open a video and start streaming instantly.',
+              },
+              {
+                q: 'Do I need to create an account to watch JAV videos?',
+                a: 'No account is required. You can browse categories, actresses, and studios and stream free JAV videos immediately. There is no sign-up, no email verification, and no login wall standing between you and the content.',
+              },
+              {
+                q: 'What is the difference between censored, uncensored, and reducing mosaic JAV?',
+                a: 'Censored JAV is released with the standard mosaic pixelation applied by mainstream Japanese studios. Uncensored JAV is released without mosaic. Reducing mosaic JAV uses only partial or light mosaic treatment. JavOnlineHD has dedicated sections for all three, so you can browse each style separately.',
+              },
+              {
+                q: 'Can I watch JAV online on my phone or tablet?',
+                a: 'Absolutely. JavOnlineHD is built mobile-first, so the layout adapts to any screen size and the video player is fully touch-friendly, with quality selection and fullscreen support. You can watch Japanese adult videos in HD on Android, iPhone, and iPad without downloading any app.',
+              },
+              {
+                q: 'What video quality is available?',
+                a: 'Most videos stream in HD with multiple quality options. The player includes a quality selector so you can switch between available resolutions to match your connection speed, and playback starts fast thanks to CDN delivery and edge caching.',
+              },
+              {
+                q: 'How often are new JAV videos added?',
+                a: 'New releases are added continuously. The homepage shows the latest uploads, and the trending section highlights the most popular videos of the week, so there is always fresh Japanese adult content to discover.',
+              },
+              {
+                q: 'How can I find videos by actress, studio, or category?',
+                a: 'Use the search bar to look up titles, JAV codes, or actresses directly. You can also browse the dedicated actresses, channels, and categories pages, where every JAV movie is grouped into one filmography or genre list with video counts and sorting.',
+              },
+              {
+                q: 'Is JavOnlineHD suitable for everyone?',
+                a: 'No. JavOnlineHD contains adult content and is strictly intended for adults aged 18 and over. All videos are clearly labeled, the platform shows no intrusive ads, and we protect real viewers by blocking AI crawlers and scrapers.',
+              },
+            ].map((item) => (
+              <details
+                key={item.q}
+                className="group glass-card overflow-hidden open:border-red-500/20 transition-all duration-300"
+              >
+                <summary className="flex items-center justify-between gap-4 p-5 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden">
+                  <h3 className="text-white/90 text-[15px] font-medium group-open:text-white transition-colors">
+                    {item.q}
+                  </h3>
+                  <span className="shrink-0 w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-open:bg-gradient-to-br group-open:from-red-600 group-open:to-blue-600 group-open:border-transparent transition-all duration-300">
+                    <svg
+                      className="w-4 h-4 text-white/60 group-open:text-white group-open:rotate-45 transition-transform duration-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </span>
+                </summary>
+                <div className="px-5 pb-5 text-white/50 text-sm leading-relaxed">
+                  {item.a}
+                </div>
+              </details>
+            ))}
           </div>
         </div>
       </section>
