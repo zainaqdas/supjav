@@ -1,7 +1,7 @@
 export interface VideoStream {
-  url: string;
-  type: string;
-  quality: string;
+  url: string | null;
+  type: string | null;
+  quality: string | null;
 }
 
 export interface VideoEndpoints {
@@ -10,6 +10,15 @@ export interface VideoEndpoints {
   downloadLink: string;
   favorite: string;
   report: string;
+  embed: string;
+}
+
+export interface Comment {
+  id: string;
+  author: string;
+  content: string;
+  date: string | null;
+  children: Comment[];
 }
 
 export interface Tag {
@@ -27,7 +36,7 @@ export interface VideoResult {
   id: string;
   slug: string;
   title: string;
-  url: string;
+  url: string | null;
   thumbnail: string | null;
   previewVideo: string | null;
   duration: string | null;
@@ -51,6 +60,8 @@ export interface VideoDetail extends VideoResult {
   actresses: Actress[];
   tags: Tag[];
   endpoints: VideoEndpoints;
+  related: VideoResult[];
+  comments: Comment[];
 }
 
 export interface PaginatedResponse<T> {

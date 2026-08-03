@@ -5,6 +5,17 @@ import SectionHeader from '@/components/SectionHeader';
 import { getVideoDetail, getTrending } from '@/lib/api';
 import type { VideoDetail, VideoResult } from '@/lib/types';
 
+function formatCommentDate(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 function formatReleaseDate(value: string): string | null {
   const date = new Date(value);
   if (isNaN(date.getTime())) return null;
@@ -45,6 +56,13 @@ export default async function VideoPage({
     getVideo(id, slug),
     getRelated(),
   ]);
+
+  // Prefer the source's real "More from These Actresses" section; fall back
+  // to trending when the page exposes no related grid.
+  const relatedVideos =
+    video && video.related && video.related.length > 0
+      ? video.related.slice(0, 12)
+      : related;
 
   if (!video) {
     return (
@@ -201,14 +219,56 @@ export default async function VideoPage({
         </div>
       </div>
 
+      {/* Comments */}
+      {video.comments && video.comments.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-white/80 font-semibold text-lg mb-4">
+            Comments ({video.comments.length})
+          </h2>
+          <div className="space-y-4">
+            {video.comments.map((comment) => (
+              <div key={comment.id || `${comment.author}-${comment.date}`} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-red-600/40 to-blue-600/40 flex items-center justify-center text-white text-sm font-bold">
+                    {(comment.author || 'M')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-white/80 text-sm font-medium">{comment.author || 'Member'}</p>
+                    {comment.date && (
+                      <p className="text-white/30 text-xs">{formatCommentDate(comment.date)}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-white/50 text-sm leading-relaxed">{comment.content}</p>
+                {comment.children && comment.children.length > 0 && (
+                  <div className="mt-3 ml-4 space-y-3 border-l border-white/5 pl-4">
+                    {comment.children.map((child) => (
+                      <div key={child.id || `${child.author}-${child.date}`} className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-white/70 text-xs font-medium">{child.author || 'Member'}</span>
+                          {child.date && (
+                            <span className="text-white/25 text-xs">{formatCommentDate(child.date)}</span>
+                          )}
+                        </div>
+                        <p className="text-white/45 text-xs leading-relaxed">{child.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Related Videos */}
-      {related.length > 0 && (
+      {relatedVideos.length > 0 && (
         <section className="mt-12 pt-8 border-t border-white/5">
           <SectionHeader
             title="You May Also Like"
             subtitle="Recommended videos"
           />
-          <VideoGrid videos={related} />
+          <VideoGrid videos={relatedVideos} />
         </section>
       )}
     </div>

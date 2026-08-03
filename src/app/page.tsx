@@ -4,7 +4,7 @@ import SectionHeader from '@/components/SectionHeader';
 import VideoGrid from '@/components/VideoGrid';
 import VideoCard from '@/components/VideoCard';
 import SortSelector from '@/components/SortSelector';
-import { getMain, getTrending, getCensored, getUncensored } from '@/lib/api';
+import { getVideos, getTrending, getCensored, getUncensored } from '@/lib/api';
 import type { VideoResult } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
@@ -17,7 +17,7 @@ export default async function Home({
 }) {
   const { sort } = await searchParams;
   const [latest, trending, censored, uncensored] = await Promise.all([
-    getMain(1, sort).catch(() => ({ videos: [] as VideoResult[], totalPages: 1, page: 1 })),
+    getVideos(1, sort).catch(() => ({ videos: [] as VideoResult[], totalPages: 1, page: 1, totalResults: 0 })),
     getTrending(1).catch(() => ({ videos: [] as VideoResult[] })),
     getCensored(1).catch(() => ({ videos: [] as VideoResult[] })),
     getUncensored(1).catch(() => ({ videos: [] as VideoResult[] })),
@@ -87,7 +87,7 @@ export default async function Home({
           <SectionHeader
             title="Latest Uploads"
             subtitle="Fresh content added regularly"
-            href="/search?q=new"
+            href="/videos"
             linkLabel="View More"
           />
           <Suspense>

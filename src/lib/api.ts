@@ -27,7 +27,7 @@ function proxyImageUrl(url: string | null): string | null {
   return url;
 }
 
-function mapVideoResult(v: scraper.VideoResult): VideoResult {
+function mapVideoResult(v: VideoResult): VideoResult {
   return {
     id: v.id,
     slug: v.slug,
@@ -43,7 +43,7 @@ function mapVideoResult(v: scraper.VideoResult): VideoResult {
   };
 }
 
-function mapVideoDetail(v: scraper.VideoDetail): VideoDetail {
+function mapVideoDetail(v: VideoDetail): VideoDetail {
   return {
     ...mapVideoResult(v),
     poster: proxyImageUrl(v.poster),
@@ -63,6 +63,8 @@ function mapVideoDetail(v: scraper.VideoDetail): VideoDetail {
     actresses: v.actresses,
     tags: v.tags,
     endpoints: v.endpoints,
+    related: v.related.map(mapVideoResult),
+    comments: v.comments,
   };
 }
 
@@ -112,6 +114,17 @@ export async function getUncensored(page = 1, sort?: string): Promise<PaginatedR
 
 export async function getReducingMosaic(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
   const data = await scraper.getReducingMosaic(page, sort);
+  return {
+    source: data.source,
+    page: data.page,
+    totalPages: data.totalPages,
+    totalResults: data.totalResults,
+    videos: data.videos.map(mapVideoResult),
+  };
+}
+
+export async function getVideos(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
+  const data = await scraper.getVideos(page, sort);
   return {
     source: data.source,
     page: data.page,

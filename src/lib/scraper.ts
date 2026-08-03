@@ -1,5 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 
 const BASE_URL = "https://javtiful.com";
 
@@ -16,88 +17,32 @@ const client = axios.create({
 });
 
 // ============================================================
-// TYPES
+// TYPES — canonical definitions live in ./types
 // ============================================================
-
-export interface VideoResult {
-  id: string;
-  slug: string;
-  title: string;
-  url: string | null;
-  thumbnail: string | null;
-  previewVideo: string | null;
-  duration: string | null;
-  quality: string | null;
-  views: string | null;
-  timeAgo: string | null;
-  badges: string[] | null;
-}
-
-export interface VideoStream {
-  url: string | null;
-  type: string | null;
-  quality: string | null;
-}
-
-export interface VideoDetail extends VideoResult {
-  poster: string | null;
-  description: string | null;
-  keywords: string[];
-  videoCode: string | null;
-  releaseDate: string | null;
-  qualityOptions: number[];
-  defaultQuality: number | null;
-  streams: VideoStream[];
-  previewSources: string[];
-  thumbnails: string[];
-  actresses: { slug: string; name: string }[];
-  tags: { type: string; slug: string; name: string }[];
-  endpoints: {
-    comments: string;
-    playlist: string;
-    downloadLink: string;
-    favorite: string;
-    report: string;
-  };
-}
-
-export interface PaginatedResponse<T> {
-  source: string;
-  page: number;
-  totalPages: number;
-  totalResults: number;
-  videos: T[];
-}
-
-export interface CategoryItem {
-  slug: string;
-  name: string;
-  videoCount: number | null;
-  url: string;
-}
-
-export interface ActressItem {
-  slug: string;
-  name: string;
-  videoCount: number | null;
-  url: string;
-}
-
-export interface ChannelItem {
-  slug: string;
-  name: string;
-  videoCount: number | null;
-  url: string;
-}
+import type {
+  VideoResult,
+  VideoStream,
+  VideoDetail,
+  PaginatedResponse,
+  Category,
+  ActressItem,
+  ChannelItem,
+  Comment,
+} from "./types";
 
 // ============================================================
 // HELPER: Parse a listing page (main, trending, search, etc.)
 // ============================================================
-function parseVideoCards($: cheerio.CheerioAPI): VideoResult[] {
+function parseVideoCards(
+  $: cheerio.CheerioAPI,
+  scope?: cheerio.Cheerio<AnyNode>
+): VideoResult[] {
   const videos: VideoResult[] = [];
 
   // Find all video cards - they use <article class="front-video-card">
-  $(".front-video-card").each((_i, el) => {
+  // (optionally scoped to a container, e.g. the related-videos grid)
+  const root = scope || $.root();
+  root.find(".front-video-card").each((_i, el) => {
     const card = $(el);
 
     // Title: specifically the .front-video-title link inside the card body
@@ -183,7 +128,7 @@ function parseVideoCards($: cheerio.CheerioAPI): VideoResult[] {
 
   // Fallback: broader matching
   if (videos.length === 0) {
-    $(".front-video-title").each((i, el) => {
+    root.find(".front-video-title").each((i, el) => {
       if (i >= 50) return false;
       const href = $(el).attr("href") || "";
       const text = $(el).text().trim();
@@ -294,13 +239,17 @@ function buildUrl(basePath: string, page: number, sort?: string): string {
 }
 
 // ============================================================
-// MAIN PAGE: Latest videos
+// VIDEO LISTINGS: main, trending, censored, uncensored,
+// reducing-mosaic all share the same markup — only the path
+// and source label differ.
 // ============================================================
-export async function getMain(
+async function getVideoListing(
+  path: string,
+  source: string,
   page = 1,
   sort?: string
 ): Promise<PaginatedResponse<VideoResult>> {
-  const url = buildUrl("/main", page, sort);
+  const url = buildUrl(path, page, sort);
   const { data } = await client.get(url);
   const $ = cheerio.load(data);
 
@@ -319,7 +268,7 @@ export async function getMain(
   }
 
   return {
-    source: "main",
+    source,
     page,
     totalPages: pagination.totalPages,
     totalResults: estimateTotalResults(
@@ -332,152 +281,124 @@ export async function getMain(
   };
 }
 
-// ============================================================
-// TRENDING: Popular videos
-// ============================================================
-export async function getTrending(
-  page = 1,
-  sort?: string
-): Promise<PaginatedResponse<VideoResult>> {
-  const url = buildUrl("/trending", page, sort);
-  const { data } = await client.get(url);
-  const $ = cheerio.load(data);
+export function getMain(page = 1, sort?: string) {
+  return getVideoListing("/main", "main", page, sort);
+}
 
-  const videos = parseVideoCards($);
-  const pagination = parsePagination($);
-  const perPage = $(".front-video-card").length || 24;
+export function getTrending(page = 1, sort?: string) {
+  return getVideoListing("/trending", "trending", page, sort);
+}
 
-  // Only assume a next page when this page is full of results — an
-  // unfilled page means we're on the last one.
-  if (videos.length > 0 && pagination.totalPages <= page) {
-    pagination.totalPages = perPage >= 24 ? page + 1 : page;
-  } else if (videos.length === 0 && pagination.totalPages <= page) {
-    pagination.totalPages = page;
-  }
+export function getCensored(page = 1, sort?: string) {
+  return getVideoListing("/censored", "censored", page, sort);
+}
 
-  return {
-    source: "trending",
-    page,
-    totalPages: pagination.totalPages,
-    totalResults: estimateTotalResults(
-      pagination.currentPage || page,
-      pagination.totalPages,
-      perPage,
-      videos.length
-    ),
-    videos,
-  };
+export function getUncensored(page = 1, sort?: string) {
+  return getVideoListing("/uncensored", "uncensored", page, sort);
+}
+
+export function getReducingMosaic(page = 1, sort?: string) {
+  return getVideoListing("/reducing-mosaic", "reducing-mosaic", page, sort);
+}
+
+// Latest JAV Videos listing — the source's real paginated, sortable archive.
+export function getVideos(page = 1, sort?: string) {
+  return getVideoListing("/videos", "videos", page, sort);
 }
 
 // ============================================================
-// CENSORED: Censored videos listing
+// HELPER: Format an ISO-8601 duration ("PT2H6M39S") like the
+// site's card tags ("02:06:39")
 // ============================================================
-export async function getCensored(
-  page = 1,
-  sort?: string
-): Promise<PaginatedResponse<VideoResult>> {
-  const url = buildUrl("/censored", page, sort);
-  const { data } = await client.get(url);
-  const $ = cheerio.load(data);
-
-  const videos = parseVideoCards($);
-  const pagination = parsePagination($);
-  const perPage = $(".front-video-card").length || 24;
-
-  // Only assume a next page when this page is full of results — an
-  // unfilled page means we're on the last one.
-  if (videos.length > 0 && pagination.totalPages <= page) {
-    pagination.totalPages = perPage >= 24 ? page + 1 : page;
-  } else if (videos.length === 0 && pagination.totalPages <= page) {
-    pagination.totalPages = page;
-  }
-
-  return {
-    source: "censored",
-    page,
-    totalPages: pagination.totalPages,
-    totalResults: estimateTotalResults(
-      pagination.currentPage || page,
-      pagination.totalPages,
-      perPage,
-      videos.length
-    ),
-    videos,
-  };
+function formatIsoDuration(value: string): string | null {
+  const match = value.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!match) return null;
+  const h = match[1] ? parseInt(match[1]) : 0;
+  const m = match[2] ? parseInt(match[2]) : 0;
+  const s = match[3] ? parseInt(match[3]) : 0;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
 // ============================================================
-// UNCENSORED: Uncensored videos listing
+// HELPER: Format a raw view count like the site does ("214.6K")
 // ============================================================
-export async function getUncensored(
-  page = 1,
-  sort?: string
-): Promise<PaginatedResponse<VideoResult>> {
-  const url = buildUrl("/uncensored", page, sort);
-  const { data } = await client.get(url);
-  const $ = cheerio.load(data);
-
-  const videos = parseVideoCards($);
-  const pagination = parsePagination($);
-  const perPage = $(".front-video-card").length || 24;
-
-  // Only assume a next page when this page is full of results — an
-  // unfilled page means we're on the last one.
-  if (videos.length > 0 && pagination.totalPages <= page) {
-    pagination.totalPages = perPage >= 24 ? page + 1 : page;
-  } else if (videos.length === 0 && pagination.totalPages <= page) {
-    pagination.totalPages = page;
-  }
-
-  return {
-    source: "uncensored",
-    page,
-    totalPages: pagination.totalPages,
-    totalResults: estimateTotalResults(
-      pagination.currentPage || page,
-      pagination.totalPages,
-      perPage,
-      videos.length
-    ),
-    videos,
-  };
+function formatViewCount(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+  return String(count);
 }
 
 // ============================================================
-// REDUCING-MOSAIC: Reducing mosaic videos listing
+// HELPER: Parse the JSON-LD VideoObject block for structured
+// metadata the HTML doesn't show (duration, views, embed URL)
 // ============================================================
-export async function getReducingMosaic(
-  page = 1,
-  sort?: string
-): Promise<PaginatedResponse<VideoResult>> {
-  const url = buildUrl("/reducing-mosaic", page, sort);
-  const { data } = await client.get(url);
-  const $ = cheerio.load(data);
-
-  const videos = parseVideoCards($);
-  const pagination = parsePagination($);
-  const perPage = $(".front-video-card").length || 24;
-
-  // Only assume a next page when this page is full of results — an
-  // unfilled page means we're on the last one.
-  if (videos.length > 0 && pagination.totalPages <= page) {
-    pagination.totalPages = perPage >= 24 ? page + 1 : page;
-  } else if (videos.length === 0 && pagination.totalPages <= page) {
-    pagination.totalPages = page;
-  }
-
-  return {
-    source: "reducing-mosaic",
-    page,
-    totalPages: pagination.totalPages,
-    totalResults: estimateTotalResults(
-      pagination.currentPage || page,
-      pagination.totalPages,
-      perPage,
-      videos.length
-    ),
-    videos,
+function parseVideoLd($: cheerio.CheerioAPI): {
+  duration: string | null;
+  views: number | null;
+  embedUrl: string | null;
+} {
+  const result = { duration: null, views: null, embedUrl: null } as {
+    duration: string | null;
+    views: number | null;
+    embedUrl: string | null;
   };
+  $('script[type="application/ld+json"]').each((_, el) => {
+    try {
+      const parsed = JSON.parse($(el).html() || "{}");
+      if (parsed && parsed["@type"] === "VideoObject") {
+        if (typeof parsed.duration === "string") result.duration = parsed.duration;
+        const stat = parsed.interactionStatistic;
+        if (
+          stat &&
+          typeof stat.userInteractionCount === "number"
+        ) {
+          result.views = stat.userInteractionCount;
+        }
+        if (typeof parsed.embedUrl === "string") result.embedUrl = parsed.embedUrl;
+        return false;
+      }
+    } catch {
+      // ignore malformed JSON-LD
+    }
+  });
+  return result;
+}
+
+// ============================================================
+// HELPER: Parse comment cards. The watch page server-renders
+// the thread (or an empty state); each comment is
+// <article class="front-comment-card"> with .front-comment-meta
+// > strong (author), time[datetime], and .front-comment-body.
+// ============================================================
+function parseCommentCards(
+  $: cheerio.CheerioAPI,
+  root: cheerio.Cheerio<AnyNode>
+): Comment[] {
+  const comments: Comment[] = [];
+  root.children(".front-comment-card").each((_, el) => {
+    const card = $(el);
+    comments.push({
+      id: card.attr("data-comment-id") || "",
+      author:
+        card.find(".front-comment-meta > strong").first().text().trim() ||
+        card.find(".front-comment-head strong").first().text().trim() ||
+        "Member",
+      content: card.find(".front-comment-body").first().text().trim(),
+      date:
+        card.find("time").first().attr("datetime") ||
+        card.find("time").first().text().trim() ||
+        null,
+      children: parseCommentCards($, card.children(".front-comment-children")),
+    });
+  });
+  return comments;
+}
+
+function parseComments($: cheerio.CheerioAPI): Comment[] {
+  const thread = $("[data-front-comment-thread]").first();
+  if (!thread.length) return [];
+  return parseCommentCards($, thread);
 }
 
 // ============================================================
@@ -486,12 +407,12 @@ export async function getReducingMosaic(
 export async function getCategories(): Promise<{
   source: string;
   totalCategories: number;
-  categories: CategoryItem[];
+  categories: Category[];
 }> {
   const { data } = await client.get("/categories");
   const $ = cheerio.load(data);
 
-  const categories: CategoryItem[] = [];
+  const categories: Category[] = [];
   $('a[href*="/category/"]').each((_i, el) => {
     const href = $(el).attr("href") || "";
     const name = $(el).text().trim();
@@ -849,6 +770,11 @@ export async function getVideoDetail(
     quality: source.size ? `${source.size}p` : null,
   }));
 
+  // Structured metadata from the JSON-LD VideoObject + visible page
+  const ld = parseVideoLd($);
+  const watchViews = $(".front-watch-views").first().text().trim();
+  const watchTime = $("time[data-front-local-datetime]").first();
+
   // Extract metadata
   const metaDescription = $('meta[name="description"]').attr("content") || "";
   const metaKeywords = $('meta[name="keywords"]').attr("content") || "";
@@ -856,18 +782,15 @@ export async function getVideoDetail(
   const publishedTime =
     $('meta[property="article:published_time"]').attr("content") || "";
 
-  const videoCode = $('[class*="video-code"], [class*="code"]')
+  const description = $(".front-watch-detail [class*=\"description\"], [class*=\"description\"], .video-description")
     .first()
     .text()
     .trim();
-  const releaseDate = $('[class*="release"], [class*="date"]')
-    .first()
-    .text()
-    .trim();
-  const description = $('[class*="description"], .video-description')
-    .first()
-    .text()
-    .trim();
+  const releaseDate =
+    watchTime.attr("datetime") ||
+    watchTime.text().trim() ||
+    publishedTime ||
+    "";
 
   // Related tags/categories
   const tags: { type: string; slug: string; name: string }[] = [];
@@ -898,9 +821,15 @@ export async function getVideoDetail(
     }
   });
 
-  // Extract preview thumbnail URLs
+  // Extract preview thumbnail URLs. The related-videos grids also carry
+  // data-front-video-preview-src / data-front-lazy-src, so exclude them —
+  // otherwise previewVideo and the screenshot gallery show *other* videos.
+  const isInRelatedGrid = (el: AnyNode) =>
+    $(el).parents(".front-video-grid, .front-video-grid-related").length > 0;
+
   const previewSources: string[] = [];
   $("[data-front-video-preview-src]").each((_, el) => {
+    if (isInRelatedGrid(el)) return;
     const src = $(el).attr("data-front-video-preview-src");
     if (src) previewSources.push(src);
   });
@@ -908,6 +837,7 @@ export async function getVideoDetail(
   // Extract all thumbnail images
   const thumbnails: string[] = [];
   $("[data-front-lazy-src], [data-front-lazy-fallback-src]").each((_, el) => {
+    if (isInRelatedGrid(el)) return;
     const src =
       $(el).attr("data-front-lazy-src") ||
       $(el).attr("data-front-lazy-fallback-src");
@@ -928,6 +858,29 @@ export async function getVideoDetail(
     $("title").text().split("|")[0].trim() ||
     "";
 
+  // Video code: prefer a leading "ABC-123" token in the title, then
+  // a dedicated element. The broad [class*="code"] selector previously
+  // matched obfuscated script text.
+  const codeFromTitle = title.trim().match(/^([A-Z0-9]+-\d+)/);
+  const videoCode =
+    (codeFromTitle && codeFromTitle[1]) ||
+    $('[class*="video-code"]').first().text().trim() ||
+    null;
+
+  // Related videos: "More from These Actresses" section + sidebar grid
+  const related: VideoResult[] = [];
+  $(".front-video-grid, .front-video-grid-related").each((_, el) => {
+    related.push(...parseVideoCards($, $(el)));
+  });
+  const relatedSeen = new Set<string>();
+  const dedupedRelated = related.filter((v) => {
+    if (relatedSeen.has(v.id)) return false;
+    relatedSeen.add(v.id);
+    return true;
+  });
+
+  const comments = parseComments($);
+
   const computedSlug =
     slug ||
     (config.videoTitle
@@ -945,11 +898,12 @@ export async function getVideoDetail(
     url: `${BASE_URL}/video/${id}/${computedSlug}`,
     thumbnail: thumbnails.length > 0 ? thumbnails[0] : null,
     previewVideo: previewSources.length > 0 ? previewSources[0] : null,
-    duration: null,
+    duration: ld.duration ? formatIsoDuration(ld.duration) : null,
     quality: typeof config.defaultQuality === "number"
       ? `${config.defaultQuality}p`
       : null,
-    views: null,
+    views: watchViews.replace(/\s*views?$/i, "").trim() ||
+      (ld.views !== null ? formatViewCount(ld.views) : null),
     timeAgo: null,
     badges: null,
     // VideoDetail extension fields
@@ -978,48 +932,41 @@ export async function getVideoDetail(
       downloadLink: `/video/${id}/download-link`,
       favorite: `/video/${id}/favorite`,
       report: `/video/${id}/report`,
+      embed: ld.embedUrl || `https://javtiful.com/embed/${id}`,
     },
+    related: dedupedRelated,
+    comments,
   };
 }
 
 // ============================================================
 // COMMENTS
 // ============================================================
-export async function getComments(videoId: string): Promise<Record<string, unknown>> {
+export async function getComments(
+  videoId: string,
+  slug?: string
+): Promise<Record<string, unknown>> {
   try {
-    const { data } = await client.get(`/video/${videoId}/comments`, {
+    // The /video/{id}/comments endpoint 301-redirects to the watch page;
+    // axios follows it and we parse the server-rendered thread from there.
+    const url = slug
+      ? `/video/${videoId}/${slug}`
+      : `/video/${videoId}/comments`;
+    const { data } = await client.get(url, {
       headers: {
         "X-Requested-With": "XMLHttpRequest",
         Accept: "application/json",
       },
+      maxRedirects: 5,
     });
 
-    if (typeof data === "object") {
+    // Some requests may return real JSON (comments payload)
+    if (typeof data === "object" && data !== null && !Buffer.isBuffer(data)) {
       return data;
     }
 
     const $ = cheerio.load(data);
-    const comments: { author: string; content: string; date: string }[] = [];
-    $(`.comment, [class*="comment-item"]`).each((_, el) => {
-      comments.push({
-        author: $(el)
-          .find(`[class*="author"], [class*="user"]`)
-          .first()
-          .text()
-          .trim(),
-        content: $(el)
-          .find(`[class*="content"], [class*="text"], [class*="body"]`)
-          .first()
-          .text()
-          .trim(),
-        date: $(el)
-          .find(`[class*="date"], [class*="time"]`)
-          .first()
-          .text()
-          .trim(),
-      });
-    });
-
+    const comments = parseComments($);
     return { videoId, comments, total: comments.length };
   } catch {
     return { videoId, error: "Failed to fetch comments", comments: [] };
