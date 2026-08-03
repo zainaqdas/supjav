@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import SectionHeader from '@/components/SectionHeader';
 import VideoGrid from '@/components/VideoGrid';
 import Pagination from '@/components/Pagination';
@@ -8,6 +9,13 @@ import type { VideoResult } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  title: 'Censored JAV Videos — Watch Online in HD',
+  description:
+    'Watch censored JAV videos online in HD. Stream the latest mosaic-covered Japanese adult movies from mainstream studios — free, fast, and no sign-up.',
+  alternates: { canonical: '/censored' },
+};
 
 export default async function CensoredPage({
   searchParams,

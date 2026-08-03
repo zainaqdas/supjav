@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import SectionHeader from '@/components/SectionHeader';
 import VideoGrid from '@/components/VideoGrid';
 import Pagination from '@/components/Pagination';
@@ -8,6 +9,13 @@ import type { VideoResult } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  title: 'Latest JAV Videos — Watch Online in HD',
+  description:
+    'Browse the latest JAV videos in HD. Stream new Japanese adult videos online for free — sorted by date, popularity, or views, with pagination across every page.',
+  alternates: { canonical: '/videos' },
+};
 
 export default async function VideosPage({
   searchParams,

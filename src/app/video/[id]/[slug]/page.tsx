@@ -1,9 +1,24 @@
+import { cache } from 'react';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import VideoPlayer from '@/components/VideoPlayer';
 import VideoGrid from '@/components/VideoGrid';
 import SectionHeader from '@/components/SectionHeader';
+import JsonLd from '@/components/JsonLd';
 import { getVideoDetail, getTrending } from '@/lib/api';
 import type { VideoDetail, VideoResult } from '@/lib/types';
+
+const SITE_URL = 'https://javhdonline.vercel.app';
+
+function formatIsoDuration(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const parts = value.split(':').map((p) => parseInt(p, 10));
+  if (parts.some((p) => isNaN(p)) || parts.length === 0) return undefined;
+  const [h, m, s] = parts.length === 3 ? parts : [0, parts[0], parts[1] ?? 0];
+  const iso =
+    (h ? `${h}H` : '') + (m ? `${m}M` : '') + `${s}S`;
+  return `PT${iso}`;
+}
 
 function formatCommentDate(value: string | null): string {
   if (!value) return '';
@@ -29,12 +44,56 @@ function formatReleaseDate(value: string): string | null {
 // Cache short: stream URLs are pre-signed (~1h expiry). CDN cache for /video/* is capped at 300s in src/proxy.ts.
 export const revalidate = 300;
 
-async function getVideo(id: string, slug: string): Promise<VideoDetail | null> {
+const getVideoCached = cache(async function getVideoCached(
+  id: string,
+  slug: string
+): Promise<VideoDetail | null> {
   try {
     return await getVideoDetail(id, slug);
   } catch {
     return null;
   }
+});
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; slug: string }>;
+}): Promise<Metadata> {
+  const { id, slug } = await params;
+  const video = await getVideoCached(id, slug);
+  const fallbackTitle = slug
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const title = video?.title || `${fallbackTitle} JAV Video`;
+  const code = video?.videoCode ? ` (${video.videoCode})` : '';
+  const description =
+    video?.description && video.description.length > 0
+      ? `${video.description.slice(0, 152)}${video.description.length > 152 ? '…' : ''}`
+      : `Watch ${title} online in HD for free. Stream ${video?.duration || 'the full video'} with multiple quality options on JavOnlineHD — no sign-up required.`;
+  const absPoster =
+    video?.poster && video.poster.startsWith('/')
+      ? `${SITE_URL}${video.poster}`
+      : video?.poster || undefined;
+
+  return {
+    title: `${title}${code} — Watch JAV Online in HD`,
+    description,
+    alternates: { canonical: `/video/${id}/${slug}` },
+    openGraph: {
+      type: 'video.other',
+      title: `${title}${code} — Watch JAV Online in HD`,
+      description: description.slice(0, 197),
+      url: `${SITE_URL}/video/${id}/${slug}`,
+      images: absPoster ? [{ url: absPoster }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${title}${code} — Watch JAV Online in HD`,
+      description: description.slice(0, 197),
+      images: absPoster ? [absPoster] : undefined,
+    },
+  };
 }
 
 async function getRelated(): Promise<VideoResult[]> {
@@ -53,7 +112,7 @@ export default async function VideoPage({
 }) {
   const { id, slug } = await params;
   const [video, related] = await Promise.all([
-    getVideo(id, slug),
+    getVideoCached(id, slug),
     getRelated(),
   ]);
 
@@ -86,6 +145,34 @@ export default async function VideoPage({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* VideoObject structured data */}
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'VideoObject',
+          name: video.title,
+          description: video.description || `Watch ${video.title} online in HD on JavOnlineHD.`,
+          thumbnailUrl:
+            (video.poster && video.poster.startsWith('/')
+              ? `${SITE_URL}${video.poster}`
+              : video.poster) ||
+            (video.thumbnails && video.thumbnails[0]) ||
+            undefined,
+          uploadDate: video.releaseDate || undefined,
+          duration: formatIsoDuration(video.duration),
+          contentUrl: `${SITE_URL}/video/${video.id}/${video.slug}`,
+          embedUrl: video.endpoints?.embed || undefined,
+          interactionStatistic:
+            video.views && /\d/.test(video.views)
+              ? {
+                  '@type': 'InteractionCounter',
+                  interactionType: { '@type': 'WatchAction' },
+                  userInteractionCount: parseInt(video.views.replace(/[^\d]/g, ''), 10) || undefined,
+                }
+              : undefined,
+        }}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">

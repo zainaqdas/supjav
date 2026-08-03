@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import SectionHeader from '@/components/SectionHeader';
 import VideoGrid from '@/components/VideoGrid';
 import Pagination from '@/components/Pagination';
@@ -8,6 +9,13 @@ import type { VideoResult } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  title: 'Uncensored JAV Videos — Watch Online in HD',
+  description:
+    'Watch uncensored JAV videos online in HD. Stream fully unmasked Japanese adult movies for free — updated daily with the newest uncensored releases.',
+  alternates: { canonical: '/uncensored' },
+};
 
 export default async function UncensoredPage({
   searchParams,

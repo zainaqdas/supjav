@@ -1,10 +1,18 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import SectionHeader from '@/components/SectionHeader';
 import { getCategories } from '@/lib/api';
 import type { Category } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  title: 'JAV Categories — Browse Genres & Niche Videos',
+  description:
+    'Explore every JAV category — amateur, beautiful girl, married woman, mature woman, big tits, school girls, and hundreds more. Browse Japanese adult video by genre on JavOnlineHD.',
+  alternates: { canonical: '/categories' },
+};
 
 export default async function CategoriesPage() {
   const data = await getCategories().catch(() => ({ categories: [] as Category[] }));

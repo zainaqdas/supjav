@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import SectionHeader from '@/components/SectionHeader';
 import Pagination from '@/components/Pagination';
 import { getChannels } from '@/lib/api';
@@ -6,6 +7,13 @@ import type { ChannelItem } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  title: 'JAV Studios & Channels — Browse Producers',
+  description:
+    'Browse every JAV studio and channel with video counts. Stream Japanese adult video from the industry’s biggest labels — sorted and paginated for easy browsing.',
+  alternates: { canonical: '/channels' },
+};
 
 export default async function ChannelsPage({
   searchParams,

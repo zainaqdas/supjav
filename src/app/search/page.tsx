@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import SectionHeader from '@/components/SectionHeader';
 import VideoGrid from '@/components/VideoGrid';
 import Pagination from '@/components/Pagination';
@@ -6,6 +7,26 @@ import type { VideoResult, SearchResponse } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
 export const revalidate = 3600;
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}): Promise<Metadata> {
+  const { q } = await searchParams;
+  const query = q?.trim();
+  return {
+    title: query ? `${query} — Search JAV Videos` : 'Search JAV Videos',
+    description: query
+      ? `Search results for "${query}" — find and watch ${query} JAV videos online in HD for free on JavOnlineHD.`
+      : 'Search JavOnlineHD for JAV videos, actresses, and codes. Watch Japanese adult videos online in HD for free.',
+    alternates: { canonical: '/search' },
+    robots: {
+      index: false,
+      follow: true,
+    },
+  };
+}
 
 async function doSearch(query: string, page: number): Promise<SearchResponse> {
   try {

@@ -63,3 +63,6 @@ Disallow: /
 
 User-agent: PetalBot
 Disallow: /
+
+# ─── Sitemap ───────────────────────────────────────────────────
+Sitemap: https://javhdonline.vercel.app/sitemap.xml

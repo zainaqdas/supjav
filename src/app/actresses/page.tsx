@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import SectionHeader from '@/components/SectionHeader';
 import Pagination from '@/components/Pagination';
 import { getActresses } from '@/lib/api';
@@ -6,6 +7,13 @@ import type { ActressItem } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  title: 'JAV Actresses — Browse Stars & Filmographies',
+  description:
+    'Browse the complete list of JAV actresses with video counts. Stream every movie from your favorite Japanese adult video stars, sorted and paginated for easy browsing.',
+  alternates: { canonical: '/actresses' },
+};
 
 export default async function ActressesPage({
   searchParams,
