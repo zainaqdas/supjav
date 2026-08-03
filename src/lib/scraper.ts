@@ -260,12 +260,15 @@ function parseDetailName($: cheerio.CheerioAPI, fallback: string): string {
 // reducing-mosaic all share the same markup — only the path
 // and source label differ.
 // ============================================================
-async function getVideoListing(
+async function getVideoListing<
+  T extends Record<string, unknown> = Record<string, unknown>
+>(
   path: string,
   source: string,
   page = 1,
-  sort?: string
-): Promise<PaginatedResponse<VideoResult>> {
+  sort?: string,
+  extra?: ($: cheerio.CheerioAPI, page: number) => T
+): Promise<PaginatedResponse<VideoResult> & T> {
   const url = buildUrl(path, page, sort);
   const { data } = await client.get(url);
   const $ = cheerio.load(data);
@@ -287,7 +290,7 @@ async function getVideoListing(
     pagination.totalPages = page;
   }
 
-  return {
+  const listing: PaginatedResponse<VideoResult> & T = {
     source,
     page,
     totalPages: pagination.totalPages,
@@ -298,7 +301,9 @@ async function getVideoListing(
       videos.length
     ),
     videos,
+    ...(extra ? extra($, page) : ({} as T)),
   };
+  return listing;
 }
 
 export function getMain(page = 1, sort?: string) {
@@ -469,28 +474,10 @@ export async function getCategory(
   page = 1,
   sort?: string
 ): Promise<PaginatedResponse<VideoResult> & { category: string; name: string }> {
-  const url = buildUrl(`/category/${slug}`, page, sort);
-  const { data } = await client.get(url);
-  const $ = cheerio.load(data);
-
-  const videos = parseVideoCards($);
-  const pagination = parsePagination($);
-  const perPage = $(".front-video-card").length || 24;
-
-  return {
-    source: "category",
+  return getVideoListing(`/category/${slug}`, "category", page, sort, ($) => ({
     category: slug,
     name: parseDetailName($, slug),
-    page: pagination.currentPage || page,
-    totalPages: pagination.totalPages,
-    totalResults: estimateTotalResults(
-      pagination.currentPage || page,
-      pagination.totalPages,
-      perPage,
-      videos.length
-    ),
-    videos,
-  };
+  }));
 }
 
 // ============================================================
@@ -578,28 +565,10 @@ export async function getActress(
   page = 1,
   sort?: string
 ): Promise<PaginatedResponse<VideoResult> & { actress: string; name: string }> {
-  const url = buildUrl(`/actress/${slug}`, page, sort);
-  const { data } = await client.get(url);
-  const $ = cheerio.load(data);
-
-  const videos = parseVideoCards($);
-  const pagination = parsePagination($);
-  const perPage = $(".front-video-card").length || 24;
-
-  return {
-    source: "actress",
+  return getVideoListing(`/actress/${slug}`, "actress", page, sort, ($) => ({
     actress: slug,
     name: parseDetailName($, slug),
-    page: pagination.currentPage || page,
-    totalPages: pagination.totalPages,
-    totalResults: estimateTotalResults(
-      pagination.currentPage || page,
-      pagination.totalPages,
-      perPage,
-      videos.length
-    ),
-    videos,
-  };
+  }));
 }
 
 // ============================================================
@@ -671,28 +640,10 @@ export async function getChannel(
   page = 1,
   sort?: string
 ): Promise<PaginatedResponse<VideoResult> & { channel: string; name: string }> {
-  const url = buildUrl(`/channel/${slug}`, page, sort);
-  const { data } = await client.get(url);
-  const $ = cheerio.load(data);
-
-  const videos = parseVideoCards($);
-  const pagination = parsePagination($);
-  const perPage = $(".front-video-card").length || 24;
-
-  return {
-    source: "channel",
+  return getVideoListing(`/channel/${slug}`, "channel", page, sort, ($) => ({
     channel: slug,
     name: parseDetailName($, slug),
-    page: pagination.currentPage || page,
-    totalPages: pagination.totalPages,
-    totalResults: estimateTotalResults(
-      pagination.currentPage || page,
-      pagination.totalPages,
-      perPage,
-      videos.length
-    ),
-    videos,
-  };
+  }));
 }
 
 // ============================================================
