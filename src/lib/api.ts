@@ -27,6 +27,21 @@ function proxyImageUrl(url: string | null): string | null {
   return url;
 }
 
+function proxyVideoUrl(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const hostname = new URL(url).hostname;
+    const shouldProxy =
+      hostname === 'javtiful.com' ||
+      hostname.endsWith('.javtiful.com') ||
+      hostname === 'r2.cloudflarestorage.com' ||
+      hostname.endsWith('.r2.cloudflarestorage.com');
+    return shouldProxy ? `/api/proxy/video?url=${encodeURIComponent(url)}` : url;
+  } catch {
+    return url;
+  }
+}
+
 function mapVideoResult(v: VideoResult): VideoResult {
   return {
     id: v.id,
@@ -54,7 +69,7 @@ function mapVideoDetail(v: VideoDetail): VideoDetail {
     qualityOptions: v.qualityOptions,
     defaultQuality: v.defaultQuality,
     streams: v.streams.map((s) => ({
-      url: s.url || '',
+      url: proxyVideoUrl(s.url) || '',
       type: s.type || '',
       quality: s.quality || '',
     })),
