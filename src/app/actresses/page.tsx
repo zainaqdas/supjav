@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import SectionHeader from '@/components/SectionHeader';
 import Pagination from '@/components/Pagination';
 import { getActresses } from '@/lib/api';
+import { parsePage } from '@/lib/http';
 import type { ActressItem } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
@@ -21,7 +22,7 @@ export default async function ActressesPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const { page: pageStr } = await searchParams;
-  const page = parseInt(pageStr || '1');
+  const page = parsePage(pageStr);
   const data = await getActresses(page).catch(() => ({ actresses: [] as ActressItem[], totalPages: 1, page: 1, totalActresses: 0, source: 'actresses' }));
   const actresses = data.actresses || [];
 

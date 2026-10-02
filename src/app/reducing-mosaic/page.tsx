@@ -5,6 +5,7 @@ import VideoGrid from '@/components/VideoGrid';
 import Pagination from '@/components/Pagination';
 import SortSelector from '@/components/SortSelector';
 import { getReducingMosaic } from '@/lib/api';
+import { parsePage, parseSort, LISTING_SORTS } from '@/lib/http';
 import type { VideoResult } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
@@ -22,8 +23,9 @@ export default async function ReducingMosaicPage({
 }: {
   searchParams: Promise<{ page?: string; sort?: string }>;
 }) {
-  const { page: pageStr, sort } = await searchParams;
-  const page = parseInt(pageStr || '1');
+  const { page: pageStr, sort: sortRaw } = await searchParams;
+  const sort = parseSort(sortRaw, LISTING_SORTS);
+  const page = parsePage(pageStr);
   const data = await getReducingMosaic(page, sort).catch(() => ({ videos: [] as VideoResult[], totalPages: 1, page: 1 }));
 
   return (

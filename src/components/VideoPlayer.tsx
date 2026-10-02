@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { VideoStream } from '@/lib/types';
 
 interface VideoPlayerProps {
   streams: VideoStream[];
   poster?: string | null;
 }
+
+const AUTOHIDE_MS = 3000;
 
 export default function VideoPlayer({ streams, poster }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -18,7 +20,7 @@ export default function VideoPlayer({ streams, poster }: VideoPlayerProps) {
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
-  const hideTimer = useRef<NodeJS.Timeout | null>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stream = streams[currentQuality] || streams[0];
 
@@ -44,23 +46,72 @@ export default function VideoPlayer({ streams, poster }: VideoPlayerProps) {
       video.removeEventListener('loadedmetadata', onLoadedMetadata);
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
-      if (hideTimer.current) clearTimeout(hideTimer.current);
     };
   }, [stream?.url]);
 
-  const togglePlay = () => {
+  // The autohide timer spans renders, so it needs its own effect. Previously
+  // its cleanup lived in the listener effect, whose dependency list
+  // ([stream?.url]) meant it never actually cleared the pending timer.
+  useEffect(() => {
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, []);
+
+  const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) video.play();
+    if (video.paused) video.play().catch(() => {});
     else video.pause();
-  };
+  }, []);
+
+  // Shared by the pointer and keyboard handlers so both seek identically.
+  const seekToFraction = useCallback(
+    (fraction: number) => {
+      const video = videoRef.current;
+      if (!video || !duration) return;
+      const clamped = Math.max(0, Math.min(1, fraction));
+      video.currentTime = clamped * duration;
+    },
+    [duration]
+  );
+
+  const seekFromClientX = useCallback(
+    (clientX: number, rect: DOMRect) => {
+      if (!rect.width) return;
+      seekToFraction((clientX - rect.left) / rect.width);
+    },
+    [seekToFraction]
+  );
+
+  const setVolumeToFraction = useCallback((fraction: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    const clamped = Math.max(0, Math.min(1, fraction));
+    video.volume = clamped;
+    setVolume(clamped);
+    setIsMuted(clamped === 0);
+  }, []);
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    const video = videoRef.current;
-    if (!video || !duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    video.currentTime = pct * duration;
+    seekFromClientX(e.clientX, e.currentTarget.getBoundingClientRect());
+  };
+
+  const seekKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 0.1 : 0.025;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      seekToFraction((currentTime / duration || 0) + step);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      seekToFraction((currentTime / duration || 0) - step);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      seekToFraction(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      seekToFraction(1);
+    }
   };
 
   const toggleMute = () => {
@@ -71,21 +122,36 @@ export default function VideoPlayer({ streams, poster }: VideoPlayerProps) {
   };
 
   const handleVolume = (e: React.MouseEvent<HTMLDivElement>) => {
-    const video = videoRef.current;
-    if (!video) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    video.volume = Math.max(0, Math.min(1, pct));
-    setVolume(video.volume);
-    setIsMuted(video.volume === 0);
+    if (!rect.width) return;
+    setVolumeToFraction((e.clientX - rect.left) / rect.width);
+  };
+
+  const volumeKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 0.2 : 0.05;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      setVolumeToFraction(volume + step);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      setVolumeToFraction(volume - step);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setVolumeToFraction(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setVolumeToFraction(1);
+    }
   };
 
   const handleMouseMove = () => {
     setShowControls(true);
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => {
-      if (isPlaying) setShowControls(false);
-    }, 3000);
+      // Read the live value from the element rather than a possibly-stale
+      // closure over isPlaying.
+      if (videoRef.current && !videoRef.current.paused) setShowControls(false);
+    }, AUTOHIDE_MS);
   };
 
   const formatTime = (t: number) => {
@@ -142,10 +208,18 @@ export default function VideoPlayer({ streams, poster }: VideoPlayerProps) {
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Progress bar */}
+        {/* Progress bar — keyboard-operable slider */}
         <div
-          className="w-full h-1 bg-white/20 rounded-full mb-3 cursor-pointer group/progress hover:h-1.5 transition-all"
+          role="slider"
+          tabIndex={0}
+          aria-label="Seek"
+          aria-valuemin={0}
+          aria-valuemax={Math.floor(duration) || 0}
+          aria-valuenow={Math.floor(currentTime)}
+          aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+          className="w-full h-1 bg-white/20 rounded-full mb-3 cursor-pointer group/progress hover:h-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           onClick={handleSeek}
+          onKeyDown={seekKey}
         >
           <div
             className="h-full rounded-full bg-gradient-to-r from-red-500 to-blue-500 relative"
@@ -184,8 +258,15 @@ export default function VideoPlayer({ streams, poster }: VideoPlayerProps) {
                 )}
               </button>
               <div
-                className="w-20 h-1 bg-white/20 rounded-full cursor-pointer hover:h-1.5 transition-all"
+                role="slider"
+                tabIndex={0}
+                aria-label="Volume"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(isMuted ? 0 : volume * 100)}
+                className="w-20 h-1 bg-white/20 rounded-full cursor-pointer hover:h-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 onClick={handleVolume}
+                onKeyDown={volumeKey}
               >
                 <div className="h-full rounded-full bg-white" style={{ width: `${isMuted ? 0 : volume * 100}%` }} />
               </div>
@@ -203,6 +284,7 @@ export default function VideoPlayer({ streams, poster }: VideoPlayerProps) {
               <select
                 value={currentQuality}
                 onChange={(e) => setCurrentQuality(Number(e.target.value))}
+                aria-label="Video quality"
                 className="bg-white/10 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:border-red-500/50 cursor-pointer"
               >
                 {streams.map((s, i) => (

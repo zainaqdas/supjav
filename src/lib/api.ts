@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import * as scraper from './scraper';
 import type {
   VideoResult,
@@ -18,8 +19,42 @@ import type {
 // on Vercel where relative fetch URLs can't resolve.
 // ============================================================
 
+// Cache lifetimes for the underlying upstream scrape.
+const REVALIDATE_LISTINGS = 3600; // 1h — listings & entity pages
+const REVALIDATE_DETAIL = 300; // 5m — stream URLs are pre-signed, ~1h validity
+
+/**
+ * Wrap a scraper call in the Next data cache.
+ *
+ * Why this exists: every listing page reads `searchParams`, which opts the
+ * route into dynamic rendering — and dynamic rendering ignores a page-level
+ * `export const revalidate`. The previous setup therefore live-scraped the
+ * source site on every single request (4 scrapes per homepage view) despite
+ * `revalidate = 3600` appearing on all of those pages. Caching at the data
+ * layer works regardless of the page's rendering mode.
+ *
+ * `unstable_cache` keys the entry by the function identity plus its
+ * arguments, so each (path, page, sort) combination caches separately.
+ */
+function cached<A extends unknown[], R>(
+  fn: (...args: A) => Promise<R>,
+  keyPrefix: string,
+  revalidate: number
+): (...args: A) => Promise<R> {
+  return (...args: A) =>
+    unstable_cache(() => fn(...args), [keyPrefix, ...args.map(String)], {
+      revalidate,
+    })();
+}
+
+// Video preview clips and streams are served from the upstream's own CDN
+// hosts (…jav.si), not javtiful.com. Guard anyway so a host change can never
+// start pushing multi-megabyte video files through the image proxy.
+const VIDEO_EXT_RE = /\.(mp4|webm|m3u8|ts|mov|m4v|avi|mkv)(\?|#|$)/i;
+
 function proxyImageUrl(url: string | null): string | null {
   if (!url) return null;
+  if (VIDEO_EXT_RE.test(url)) return url;
   // Proxy javtiful.com images through our API to avoid CORS/referer blocking
   if (url.includes('javtiful.com')) {
     return `/api/proxy/image?url=${encodeURIComponent(url)}`;
@@ -68,8 +103,10 @@ function mapVideoDetail(v: VideoDetail): VideoDetail {
   };
 }
 
-export async function getMain(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getMain(page, sort);
+/** Strip the volatile bits so listings all share one small mapping helper. */
+function toListing<T extends PaginatedResponse<VideoResult>>(
+  data: T
+): PaginatedResponse<VideoResult> {
   return {
     source: data.source,
     page: data.page,
@@ -79,160 +116,188 @@ export async function getMain(page = 1, sort?: string): Promise<PaginatedRespons
   };
 }
 
-export async function getTrending(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getTrending(page, sort);
-  return {
-    source: data.source,
-    page: data.page,
-    totalPages: data.totalPages,
-    totalResults: data.totalResults,
-    videos: data.videos.map(mapVideoResult),
-  };
-}
+// ---- Listings -------------------------------------------------------------
 
-export async function getCensored(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getCensored(page, sort);
-  return {
-    source: data.source,
-    page: data.page,
-    totalPages: data.totalPages,
-    totalResults: data.totalResults,
-    videos: data.videos.map(mapVideoResult),
-  };
-}
+export const getMain = cached(
+  (page: number, sort?: string) =>
+    scraper.getMain(page, sort).then(toListing),
+  'getMain',
+  REVALIDATE_LISTINGS
+);
 
-export async function getUncensored(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getUncensored(page, sort);
-  return {
-    source: data.source,
-    page: data.page,
-    totalPages: data.totalPages,
-    totalResults: data.totalResults,
-    videos: data.videos.map(mapVideoResult),
-  };
-}
+export const getTrending = cached(
+  (page: number, sort?: string) =>
+    scraper.getTrending(page, sort).then(toListing),
+  'getTrending',
+  REVALIDATE_LISTINGS
+);
 
-export async function getReducingMosaic(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getReducingMosaic(page, sort);
-  return {
-    source: data.source,
-    page: data.page,
-    totalPages: data.totalPages,
-    totalResults: data.totalResults,
-    videos: data.videos.map(mapVideoResult),
-  };
-}
+export const getCensored = cached(
+  (page: number, sort?: string) =>
+    scraper.getCensored(page, sort).then(toListing),
+  'getCensored',
+  REVALIDATE_LISTINGS
+);
 
-export async function getVideos(page = 1, sort?: string): Promise<PaginatedResponse<VideoResult>> {
-  const data = await scraper.getVideos(page, sort);
-  return {
-    source: data.source,
-    page: data.page,
-    totalPages: data.totalPages,
-    totalResults: data.totalResults,
-    videos: data.videos.map(mapVideoResult),
-  };
-}
+export const getUncensored = cached(
+  (page: number, sort?: string) =>
+    scraper.getUncensored(page, sort).then(toListing),
+  'getUncensored',
+  REVALIDATE_LISTINGS
+);
 
-export async function getCategories(): Promise<CategoryListResponse> {
-  const data = await scraper.getCategories();
-  return {
-    source: data.source,
-    totalCategories: data.totalCategories,
-    categories: data.categories.map((c) => ({
-      slug: c.slug,
-      name: c.name,
-      videoCount: c.videoCount,
-      url: c.url,
-    })),
-  };
-}
+export const getReducingMosaic = cached(
+  (page: number, sort?: string) =>
+    scraper.getReducingMosaic(page, sort).then(toListing),
+  'getReducingMosaic',
+  REVALIDATE_LISTINGS
+);
 
-export async function getCategory(slug: string, page = 1, sort?: string): Promise<CategoryDetailResponse> {
-  const data = await scraper.getCategory(slug, page, sort);
-  return {
-    source: data.source,
-    category: data.category,
-    name: data.name,
-    page: data.page,
-    totalPages: data.totalPages,
-    totalResults: data.totalResults,
-    videos: data.videos.map(mapVideoResult),
-  };
-}
+export const getVideos = cached(
+  (page: number, sort?: string) =>
+    scraper.getVideos(page, sort).then(toListing),
+  'getVideos',
+  REVALIDATE_LISTINGS
+);
 
-export async function getActresses(page = 1): Promise<ActressListResponse> {
-  const data = await scraper.getActresses(page);
-  return {
-    source: data.source,
-    totalActresses: data.totalActresses,
-    actresses: data.actresses.map((a) => ({
-      slug: a.slug,
-      name: a.name,
-      videoCount: a.videoCount,
-      url: a.url,
-    })),
-    page: data.page,
-    totalPages: data.totalPages,
-  };
-}
+// ---- Categories -----------------------------------------------------------
 
-export async function getActress(slug: string, page = 1, sort?: string): Promise<ActressDetailResponse> {
-  const data = await scraper.getActress(slug, page, sort);
-  return {
-    source: data.source,
-    actress: data.actress,
-    name: data.name,
-    page: data.page,
-    totalPages: data.totalPages,
-    totalResults: data.totalResults,
-    videos: data.videos.map(mapVideoResult),
-  };
-}
+export const getCategories = cached(
+  () =>
+    scraper.getCategories().then(
+      (data): CategoryListResponse => ({
+        source: data.source,
+        totalCategories: data.totalCategories,
+        categories: data.categories.map((c) => ({
+          slug: c.slug,
+          name: c.name,
+          videoCount: c.videoCount,
+          url: c.url,
+        })),
+      })
+    ),
+  'getCategories',
+  REVALIDATE_LISTINGS
+);
 
-export async function getChannels(page = 1): Promise<ChannelListResponse> {
-  const data = await scraper.getChannels(page);
-  return {
-    source: data.source,
-    totalChannels: data.totalChannels,
-    channels: data.channels.map((c) => ({
-      slug: c.slug,
-      name: c.name,
-      videoCount: c.videoCount,
-      url: c.url,
-    })),
-    page: data.page,
-    totalPages: data.totalPages,
-  };
-}
+export const getCategory = cached(
+  (slug: string, page: number, sort?: string) =>
+    scraper.getCategory(slug, page, sort).then(
+      (data): CategoryDetailResponse => ({
+        source: data.source,
+        category: data.category,
+        name: data.name,
+        page: data.page,
+        totalPages: data.totalPages,
+        totalResults: data.totalResults,
+        videos: data.videos.map(mapVideoResult),
+      })
+    ),
+  'getCategory',
+  REVALIDATE_LISTINGS
+);
 
-export async function getChannel(slug: string, page = 1, sort?: string): Promise<ChannelDetailResponse> {
-  const data = await scraper.getChannel(slug, page, sort);
-  return {
-    source: data.source,
-    channel: data.channel,
-    name: data.name,
-    page: data.page,
-    totalPages: data.totalPages,
-    totalResults: data.totalResults,
-    videos: data.videos.map(mapVideoResult),
-  };
-}
+// ---- Actresses ------------------------------------------------------------
 
-export async function search(query: string, page = 1): Promise<SearchResponse> {
-  const data = await scraper.search(query, page);
-  return {
-    source: data.source,
-    query: data.query,
-    page: data.page,
-    totalPages: data.totalPages,
-    totalResults: data.totalResults,
-    videos: data.videos.map(mapVideoResult),
-  };
-}
+export const getActresses = cached(
+  (page: number) =>
+    scraper.getActresses(page).then(
+      (data): ActressListResponse => ({
+        source: data.source,
+        totalActresses: data.totalActresses,
+        actresses: data.actresses.map((a) => ({
+          slug: a.slug,
+          name: a.name,
+          videoCount: a.videoCount,
+          url: a.url,
+        })),
+        page: data.page,
+        totalPages: data.totalPages,
+      })
+    ),
+  'getActresses',
+  REVALIDATE_LISTINGS
+);
 
-export async function getVideoDetail(id: string, slug: string): Promise<VideoDetail> {
-  const data = await scraper.getVideoDetail(id, slug);
-  return mapVideoDetail(data);
-}
+export const getActress = cached(
+  (slug: string, page: number, sort?: string) =>
+    scraper.getActress(slug, page, sort).then(
+      (data): ActressDetailResponse => ({
+        source: data.source,
+        actress: data.actress,
+        name: data.name,
+        page: data.page,
+        totalPages: data.totalPages,
+        totalResults: data.totalResults,
+        videos: data.videos.map(mapVideoResult),
+      })
+    ),
+  'getActress',
+  REVALIDATE_LISTINGS
+);
 
+// ---- Channels -------------------------------------------------------------
+
+export const getChannels = cached(
+  (page: number) =>
+    scraper.getChannels(page).then(
+      (data): ChannelListResponse => ({
+        source: data.source,
+        totalChannels: data.totalChannels,
+        channels: data.channels.map((c) => ({
+          slug: c.slug,
+          name: c.name,
+          videoCount: c.videoCount,
+          url: c.url,
+        })),
+        page: data.page,
+        totalPages: data.totalPages,
+      })
+    ),
+  'getChannels',
+  REVALIDATE_LISTINGS
+);
+
+export const getChannel = cached(
+  (slug: string, page: number, sort?: string) =>
+    scraper.getChannel(slug, page, sort).then(
+      (data): ChannelDetailResponse => ({
+        source: data.source,
+        channel: data.channel,
+        name: data.name,
+        page: data.page,
+        totalPages: data.totalPages,
+        totalResults: data.totalResults,
+        videos: data.videos.map(mapVideoResult),
+      })
+    ),
+  'getChannel',
+  REVALIDATE_LISTINGS
+);
+
+// ---- Search ---------------------------------------------------------------
+
+export const search = cached(
+  (query: string, page: number) =>
+    scraper.search(query, page).then(
+      (data): SearchResponse => ({
+        source: data.source,
+        query: data.query,
+        page: data.page,
+        totalPages: data.totalPages,
+        totalResults: data.totalResults,
+        videos: data.videos.map(mapVideoResult),
+      })
+    ),
+  'search',
+  REVALIDATE_LISTINGS
+);
+
+// ---- Video detail ---------------------------------------------------------
+
+export const getVideoDetail = cached(
+  (id: string, slug?: string) =>
+    scraper.getVideoDetail(id, slug).then(mapVideoDetail),
+  'getVideoDetail',
+  REVALIDATE_DETAIL
+);

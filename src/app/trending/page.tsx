@@ -3,6 +3,7 @@ import SectionHeader from '@/components/SectionHeader';
 import VideoGrid from '@/components/VideoGrid';
 import Pagination from '@/components/Pagination';
 import { getTrending } from '@/lib/api';
+import { parsePage } from '@/lib/http';
 import type { VideoResult } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
@@ -21,7 +22,7 @@ export default async function TrendingPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const { page: pageStr } = await searchParams;
-  const page = parseInt(pageStr || '1');
+  const page = parsePage(pageStr);
   const data = await getTrending(page).catch(() => ({ videos: [] as VideoResult[], totalPages: 1, page: 1 }));
 
   return (

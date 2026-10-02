@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCensored } from "@/lib/scraper";
-import { apiJson } from "@/lib/http";
+import { apiJson, parsePage, parseSort, LISTING_SORTS } from "@/lib/http";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const sort = searchParams.get("sort") || undefined;
+    const page = parsePage(searchParams.get("page"));
+    const sort = parseSort(searchParams.get("sort"), LISTING_SORTS);
     const result = await getCensored(page, sort);
     return apiJson(result);
   } catch (err) {

@@ -3,6 +3,7 @@ import SectionHeader from '@/components/SectionHeader';
 import VideoGrid from '@/components/VideoGrid';
 import Pagination from '@/components/Pagination';
 import { search } from '@/lib/api';
+import { parsePage } from '@/lib/http';
 import type { VideoResult, SearchResponse } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
@@ -14,7 +15,7 @@ export async function generateMetadata({
   searchParams: Promise<{ q?: string }>;
 }): Promise<Metadata> {
   const { q } = await searchParams;
-  const query = q?.trim();
+  const query = q?.trim().slice(0, 120);
   return {
     title: query ? `${query} — Search JAV Videos` : 'Search JAV Videos',
     description: query
@@ -27,6 +28,8 @@ export async function generateMetadata({
     },
   };
 }
+
+const MAX_QUERY_LENGTH = 120;
 
 async function doSearch(query: string, page: number): Promise<SearchResponse> {
   try {
@@ -42,8 +45,11 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q: query = '', page: pageStr } = await searchParams;
-  const page = parseInt(pageStr || '1');
-  const data = query ? await doSearch(query, page) : null;
+  const page = parsePage(pageStr);
+  // Bound the echoed term so an arbitrarily long ?q= can't be reflected into
+  // the page title, description, heading and pagination links.
+  const trimmed = query.trim().slice(0, MAX_QUERY_LENGTH);
+  const data = trimmed ? await doSearch(trimmed, page) : null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -80,11 +86,11 @@ export default async function SearchPage({
       {data ? (
         <>
           <SectionHeader
-            title={`Results for "${query}"`}
+            title={`Results for "${trimmed}"`}
             subtitle={`${data.totalResults} videos found — Page ${data.page} of ${data.totalPages}`}
           />
           <VideoGrid videos={data.videos} />
-          <Pagination currentPage={page} totalPages={data.totalPages} baseUrl="/search" searchParams={{ q: query }} />
+          <Pagination currentPage={page} totalPages={data.totalPages} baseUrl="/search" searchParams={{ q: trimmed }} />
         </>
       ) : (
         <div className="text-center py-16">

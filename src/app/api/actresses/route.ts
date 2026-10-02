@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getActresses } from "@/lib/scraper";
-import { apiJson } from "@/lib/http";
+import { apiJson, parsePage } from "@/lib/http";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
+    const page = parsePage(searchParams.get("page"));
     const result = await getActresses(page);
     return apiJson(result);
   } catch (err) {

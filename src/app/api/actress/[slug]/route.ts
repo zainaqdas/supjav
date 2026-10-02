@@ -1,6 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getActress } from "@/lib/scraper";
-import { apiJson } from "@/lib/http";
+import {
+  apiJson,
+  badRequest,
+  isValidSlug,
+  parsePage,
+  parseSort,
+  DETAIL_SORTS,
+} from "@/lib/http";
 
 export async function GET(
   request: NextRequest,
@@ -8,9 +15,12 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
+    if (!isValidSlug(slug)) {
+      return badRequest("Invalid actress slug");
+    }
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const sort = searchParams.get("sort") || undefined;
+    const page = parsePage(searchParams.get("page"));
+    const sort = parseSort(searchParams.get("sort"), DETAIL_SORTS);
     const result = await getActress(slug, page, sort);
     return apiJson(result);
   } catch (err) {

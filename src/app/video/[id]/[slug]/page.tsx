@@ -6,6 +6,8 @@ import VideoGrid from '@/components/VideoGrid';
 import SectionHeader from '@/components/SectionHeader';
 import JsonLd from '@/components/JsonLd';
 import { getVideoDetail, getTrending } from '@/lib/api';
+import { isValidSlug, isValidVideoId } from '@/lib/http';
+import { notFound } from 'next/navigation';
 import { SITE_URL } from '@/lib/site';
 import type { VideoDetail, VideoResult } from '@/lib/types';
 
@@ -66,12 +68,21 @@ const getVideoCached = cache(async function getVideoCached(
   }
 });
 
+// Both params feed an upstream URL — reject anything that isn't a numeric id
+// plus a single safe path segment before spending a request on it.
+function isValidVideoParams(id: string, slug: string): boolean {
+  return isValidVideoId(id) && isValidSlug(slug);
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string; slug: string }>;
 }): Promise<Metadata> {
   const { id, slug } = await params;
+  if (!isValidVideoParams(id, slug)) {
+    return { title: 'Video Not Found', robots: { index: false, follow: false } };
+  }
   const video = await getVideoCached(id, slug);
   const fallbackTitle = slug
     .replace(/-/g, ' ')
@@ -111,9 +122,16 @@ export async function generateMetadata({
   };
 }
 
+// Only these tag types map to a real route on this site. The source scraper
+// also matches `/tag/…` hrefs, but the source has no /tag pages (they 404),
+// so linking them produced dead ends.
+const TAG_ROUTES: Record<string, string> = { category: 'category' };
+
 async function getRelated(): Promise<VideoResult[]> {
   try {
-    const data = await getTrending();
+    // Cached at the data layer by lib/api.ts, so this no longer costs an
+    // extra upstream scrape on every video page view.
+    const data = await getTrending(1);
     return data.videos?.slice(0, 10) || [];
   } catch {
     return [];
@@ -126,6 +144,8 @@ export default async function VideoPage({
   params: Promise<{ id: string; slug: string }>;
 }) {
   const { id, slug } = await params;
+  if (!isValidVideoParams(id, slug)) notFound();
+
   const [video, related] = await Promise.all([
     getVideoCached(id, slug),
     getRelated(),
@@ -222,15 +242,17 @@ export default async function VideoPage({
           {/* Tags */}
           {video.tags && video.tags.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {video.tags.map((tag) => (
-                <Link
-                  key={`${tag.type}-${tag.slug}`}
-                  href={`/${tag.type}/${tag.slug}`}
-                  className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/50 text-xs hover:text-red-400 hover:border-red-500/30 transition-all"
-                >
-                  {tag.name}
-                </Link>
-              ))}
+              {video.tags
+                .filter((tag) => TAG_ROUTES[tag.type])
+                .map((tag) => (
+                  <Link
+                    key={`${tag.type}-${tag.slug}`}
+                    href={`/${TAG_ROUTES[tag.type]}/${tag.slug}`}
+                    className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/50 text-xs hover:text-red-400 hover:border-red-500/30 transition-all"
+                  >
+                    {tag.name}
+                  </Link>
+                ))}
             </div>
           )}
 

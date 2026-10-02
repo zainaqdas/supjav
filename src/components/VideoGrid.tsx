@@ -6,7 +6,14 @@ interface VideoGridProps {
 }
 
 export default function VideoGrid({ videos }: VideoGridProps) {
-  if (!videos || videos.length === 0) {
+  // Dedupe by id: the scraper already dedupes related grids by id, and two
+  // entries for the same video (e.g. differing slugs) would otherwise produce
+  // duplicate React keys here.
+  const unique = Array.from(
+    new Map((videos ?? []).filter((v) => v.id).map((v) => [v.id, v])).values()
+  );
+
+  if (unique.length === 0) {
     return (
       <div className="text-center py-20">
         <div className="w-16 h-16 rounded-full bg-white/5 mx-auto flex items-center justify-center mb-4">
@@ -21,8 +28,8 @@ export default function VideoGrid({ videos }: VideoGridProps) {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {videos.map((video, i) => (
-        <VideoCard key={`${video.id}-${video.slug}`} video={video} index={i} />
+      {unique.map((video, i) => (
+        <VideoCard key={video.id} video={video} index={i} />
       ))}
     </div>
   );

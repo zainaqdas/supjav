@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import SectionHeader from '@/components/SectionHeader';
 import Pagination from '@/components/Pagination';
 import { getChannels } from '@/lib/api';
+import { parsePage } from '@/lib/http';
 import type { ChannelItem } from '@/lib/types';
 
 // ISR: cache for 1 hour to reduce calls to source website
@@ -21,7 +22,7 @@ export default async function ChannelsPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const { page: pageStr } = await searchParams;
-  const page = parseInt(pageStr || '1');
+  const page = parsePage(pageStr);
   const data = await getChannels(page).catch(() => ({ channels: [] as ChannelItem[], totalPages: 1, page: 1, totalChannels: 0, source: 'channels' }));
   const channels = data.channels || [];
 

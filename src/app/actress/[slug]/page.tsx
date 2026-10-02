@@ -6,6 +6,13 @@ import Pagination from '@/components/Pagination';
 import SortSelector, { DETAIL_SORT_OPTIONS } from '@/components/SortSelector';
 import JsonLd from '@/components/JsonLd';
 import { getActress } from '@/lib/api';
+import {
+  isValidSlug,
+  parsePage,
+  parseSort,
+  DETAIL_SORTS,
+} from '@/lib/http';
+import { notFound } from 'next/navigation';
 import { SITE_URL } from '@/lib/site';
 import type { VideoResult } from '@/lib/types';
 
@@ -32,8 +39,11 @@ export async function generateMetadata({
   searchParams: Promise<{ page?: string; sort?: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const { page: pageStr, sort } = await searchParams;
-  const page = parseInt(pageStr || '1');
+
+  if (!isValidSlug(slug)) notFound();
+  const { page: pageStr, sort: sortRaw } = await searchParams;
+  const sort = parseSort(sortRaw, DETAIL_SORTS);
+  const page = parsePage(pageStr);
   const data = await getActressVideos(slug, page, sort);
   const name = data.name || slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   return {
@@ -56,8 +66,11 @@ export default async function ActressPage({
   searchParams: Promise<{ page?: string; sort?: string }>;
 }) {
   const { slug } = await params;
-  const { page: pageStr, sort } = await searchParams;
-  const page = parseInt(pageStr || '1');
+
+  if (!isValidSlug(slug)) notFound();
+  const { page: pageStr, sort: sortRaw } = await searchParams;
+  const sort = parseSort(sortRaw, DETAIL_SORTS);
+  const page = parsePage(pageStr);
   const data = await getActressVideos(slug, page, sort);
   const name = data.name || slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 

@@ -986,10 +986,15 @@ export async function getCsrfToken(): Promise<Record<string, unknown>> {
 
 // ============================================================
 // DOWNLOAD LINK
+//
+// The source binds its CSRF token to the `javtiful_session` cookie issued
+// alongside it, so a caller-supplied token is useless here anyway — and
+// accepting one turned this endpoint into an unauthenticated relay for
+// client-controlled POSTs to the upstream. The token is therefore always
+// acquired server-side immediately before the POST.
 // ============================================================
 export async function getDownloadLink(
-  videoId: string,
-  csrfToken?: string
+  videoId: string
 ): Promise<Record<string, unknown>> {
   try {
     const headers: Record<string, string> = {
@@ -997,9 +1002,17 @@ export async function getDownloadLink(
       Accept: "application/json",
       "Content-Type": "application/x-www-form-urlencoded",
     };
-    if (csrfToken) {
-      headers["X-CSRF-Token"] = csrfToken;
+
+    const tokenPayload = await getCsrfToken();
+    const token =
+      typeof tokenPayload.token === "string" ? tokenPayload.token : null;
+    if (!token) {
+      return {
+        success: false,
+        message: "Could not obtain an upstream CSRF token",
+      };
     }
+    headers["X-CSRF-Token"] = token;
 
     const response = await client.post(
       `/video/${videoId}/download-link`,

@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getVideoDetail } from "@/lib/scraper";
-import { apiJson } from "@/lib/http";
+import {
+  apiJson,
+  badRequest,
+  isValidSlug,
+  isValidVideoId,
+} from "@/lib/http";
 
 export async function GET(
   _request: NextRequest,
@@ -8,6 +13,12 @@ export async function GET(
 ) {
   try {
     const { id, slug } = await params;
+    if (!isValidVideoId(id)) {
+      return badRequest("Invalid video id");
+    }
+    if (!isValidSlug(slug)) {
+      return badRequest("Invalid video slug");
+    }
     const result = await getVideoDetail(id, slug);
     return apiJson(result, "video");
   } catch (err) {

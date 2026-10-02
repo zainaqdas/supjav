@@ -1,19 +1,20 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js" alt="Node">
-  <img src="https://img.shields.io/badge/Next.js-15-black?logo=next.js" alt="Next.js">
+  <img src="https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js" alt="Node">
+  <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js">
+  <img src="https://img.shields.io/badge/React-19-087ea4?logo=react" alt="React">
   <img src="https://img.shields.io/badge/TypeScript-5-blue?logo=typescript" alt="TS">
   <img src="https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss" alt="Tailwind">
   <img src="https://img.shields.io/badge/Vercel-deployed-black?logo=vercel" alt="Vercel">
 </p>
 
 <h1 align="center">
-  JavOnlineHd — JAV Streaming Platform
+  JavOnlineHD — JAV Streaming Platform
 </h1>
 
 <p align="center">
-  A full-stack streaming website with a <strong>Next.js 15 + TypeScript</strong> frontend and
-  <strong>built-in scraper API</strong> — featuring a red & blue glassmorphism design.<br>
-  Deploy to <strong>Vercel</strong> in one click.
+  A Next.js 16 App Router site with a <strong>built-in scraper API</strong> — red &amp; blue
+  glassmorphism design, ISR + data-cache backed, with edge bot-blocking.
+  Deploy to <strong>Vercel</strong>.
 </p>
 
 ---
@@ -21,230 +22,264 @@
 ## Table of Contents
 
 - [Architecture](#-architecture)
-- [Source Mapping](#-source-mapping)
-- [Quick Start](#-quick-start)
+- [Caching model](#-caching-model) — read this first, it is the non-obvious part
+- [Source mapping](#-source-mapping)
+- [Quick start](#-quick-start)
 - [Deploy to Vercel](#-deploy-to-vercel)
 - [Scraper API](#-scraper-api)
-  - [API Endpoints](#api-endpoints)
-  - [Sort Options by Route](#sort-options-by-route)
-  - [Cache Tiers](#cache-tiers)
-  - [Data Types](#data-types)
-- [Next.js Frontend](#-nextjs-frontend)
-  - [Pages & Routes](#pages--routes)
-  - [Components](#components)
-- [Bot Protection](#-bot-protection)
-- [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
+  - [Endpoints](#api-endpoints)
+  - [Parameter validation](#parameter-validation)
+  - [Cache tiers](#cache-tiers)
+  - [Sort options by route](#sort-options-by-route)
+  - [Data types](#data-types)
+- [Frontend](#-frontend)
+- [Security](#-security)
+- [Project structure](#-project-structure)
 
 ---
 
 ## 🏗 Architecture
 
-A single Next.js project containing both the **frontend** (SSR pages) and the **scraper API** (serverless functions).
+A single Next.js project containing both the **frontend** (SSR pages) and the **scraper API**
+(serverless route handlers).
 
 ```
 ┌──────────────────────────────────────┐
-│  Next.js 15 + TS                     │
+│  Next.js 16 + TS                     │
 │                                      │
-│  src/app/page.tsx  ──fetch──▶  /api/ │
-│  (SSR + ISR)              │          │
-│                           │          │
-│               ┌───────────▼────────┐  │
-│               │  API Routes        │  │
-│               │  (serverless)      │  │
-│               │  cheerio + axios   │  │
-│               └─────────┬──────────┘  │
-└─────────────────────────┼─────────────┘
-                          ▼
-                 ┌──────────────────┐
-                 │   javtiful.com   │
-                 └──────────────────┘
+│  src/app/**/page.tsx                 │
+│        │                             │
+│        ▼                             │
+│  src/lib/api.ts   ── unstable_cache ─┼──▶ Next data cache (1h / 5m)
+│        │                             │
+│        ▼                             │
+│  src/lib/scraper.ts (cheerio+axios)  │
+└────────┼─────────────────────────────┘
+         ▼
+   javtiful.com
 ```
 
-The scraper logic lives in `src/lib/scraper.ts`. API routes are thin wrappers that call it. Pages call `src/lib/api.ts`, which proxies through the scraper directly (no HTTP self-fetches — works reliably during SSR on Vercel).
+Pages call `src/lib/api.ts`, which invokes the scraper directly — no HTTP self-fetches, which
+avoids the relative-URL resolution problems that occur during SSR on Vercel. API routes call
+`src/lib/scraper.ts` directly too, and add CDN `Cache-Control` headers via `src/lib/http.ts`.
 
 ---
 
-## 🗺 Source Mapping
+## ⚠️ Caching model
 
-Every route maps to a specific javtiful.com source page, verified by the full end-to-end audit:
+**This is the part worth understanding before changing anything.**
 
-| Our Route | Source URL | Pagination | Sort Support | Notes |
+Every listing page reads `searchParams` (`?page`, `?sort`, `?q`). In the App Router that
+**opts the route into dynamic rendering**, and dynamic rendering ignores a page-level
+`export const revalidate`.
+
+So the many `export const revalidate = 3600` declarations in this codebase are, on their own,
+inert for every page that reads `searchParams`. An earlier version of this project relied on
+them alone and therefore **live-scraped the source site on every request** — four concurrent
+scrapes per homepage view.
+
+The actual caching lives one layer down, in `src/lib/api.ts`:
+
+```ts
+export const getVideos = cached(
+  (page: number, sort?: string) => scraper.getVideos(page, sort).then(toListing),
+  'getVideos',
+  REVALIDATE_LISTINGS // 3600
+);
+```
+
+`unstable_cache` populates the Next **data cache**, which is consulted regardless of whether
+the page is statically or dynamically rendered. Arguments form part of the cache key, so each
+`(page, sort)` pair is cached separately.
+
+**Consequence:** the HTML response is still `Cache-Control: private, no-store` on those routes
+(they are dynamic), but the expensive part — the upstream HTTP fetch and HTML parse — is served
+from cache. Measured locally, the homepage drops from ~0.95s (cold) to ~0.09s (warm).
+
+If you add a scraper call, wrap it in `cached(...)` in `src/lib/api.ts`. If you add a *page*,
+do not assume `export const revalidate` will cache anything unless the page reads no
+`searchParams`.
+
+Two more cache layers exist:
+
+| Layer | Where | Covers |
+|---|---|---|
+| Next data cache | `unstable_cache` in `src/lib/api.ts` | All page scraper calls |
+| Vercel CDN | `Cache-Control` in `src/lib/http.ts` | `/api/*` JSON responses |
+| Full-page ISR | `export const revalidate` | Static pages only (`/categories`, `/about`, `/contact`, `/privacy-policy`, `/terms`, `/sitemap.xml`) |
+
+---
+
+## 🗺 Source mapping
+
+| Our route | Source URL | Pagination | Sort | Notes |
 |---|---|---|---|---|
-| `/` (Home) | `/main` | ❌ (/main ignores `?page=`) | ❌ | Dashboard of sections (Latest, Censored, Uncensored, Trending, Explore). Not a paginated listing. |
-| `/videos` | `/videos` | ✅ Windowed (1..+1, Next disabled at end) | ✅ 8-value set (see below) | The real "Latest JAV Videos" archive — our default homepage link. |
-| `/trending` | `/trending` | ✅ | ❌ (source ignores `?sort=`) | No sort selector rendered. |
-| `/censored` | `/censored` | ✅ | ✅ 8-value set | Sort verified: 0% content overlap. |
-| `/uncensored` | `/uncensored` | ✅ | ✅ 8-value set | |
-| `/reducing-mosaic` | `/reducing-mosaic` | ✅ | ✅ 8-value set | |
-| `/categories` | `/categories` | N/A | N/A | 21 categories with counts. |
-| `/category/:slug` | `/category/:slug` | ✅ Last page exact | ✅ 4-value set | Real name parsed from h1 (e.g. "Affair"). |
-| `/actresses` | `/actresses` | ✅ 313 pages | N/A | |
-| `/actress/:slug` | `/actress/:slug` | ✅ Last page exact (e.g. 16) | ✅ 4-value set | Real name parsed from h1 (e.g. "Hamasaki Mao"). |
-| `/channels` | `/channels` | ✅ 13 pages | N/A | |
-| `/channel/:slug` | `/channel/:slug` | ✅ Last page exact (e.g. 88) | ✅ 4-value set | Real name parsed from h1 (e.g. "Attackers"). |
-| `/search?q=...` | `/search?q=...` | ✅ | N/A | Search only sorts by relevance. |
-| `/video/:id/:slug` | `/video/:id/:slug` | N/A | N/A | Full detail — streams from Cloudflare R2. |
+| `/` | `/videos` + `/trending` + `/censored` + `/uncensored` | — | 8-value | Dashboard. 4 concurrent cached scrapes. |
+| `/videos` | `/videos` | ✅ windowed | ✅ 8-value | The real latest-videos archive. |
+| `/trending` | `/trending` | ✅ | ❌ ignored upstream | No sort selector rendered. |
+| `/censored` | `/censored` | ✅ | ✅ 8-value | |
+| `/uncensored` | `/uncensored` | ✅ | ✅ 8-value | |
+| `/reducing-mosaic` | `/reducing-mosaic` | ✅ | ✅ 8-value | |
+| `/categories` | `/categories` | N/A | N/A | Flat list with counts. |
+| `/category/:slug` | `/category/:slug` | ✅ exact | ✅ 4-value | Real name parsed from `h1`. |
+| `/actresses` | `/actresses` | ✅ deep | N/A | Hundreds of pages. |
+| `/actress/:slug` | `/actress/:slug` | ✅ exact | ✅ 4-value | Real name parsed from `h1`. |
+| `/channels` | `/channels` | ✅ | N/A | |
+| `/channel/:slug` | `/channel/:slug` | ✅ exact | ✅ 4-value | Real name parsed from `h1`. |
+| `/search?q=` | `/search?q=` | ✅ | N/A | Relevance order only. Max 120 chars. |
+| `/video/:id/:slug` | `/video/:id/:slug` | N/A | N/A | Streams from the source's CDN. |
+| `/api/main` | `/main` | ❌ upstream ignores `?page=` | ❌ | Dashboard feed. |
 
-### Pagination Behavior
+### Pagination behaviour
 
-- **Video listings** (`/videos`, `/censored`, etc.) use a **sliding window** widget (current page ± a few). The widget never exposes the true last page number — our endpoint uses the disabled-Next signal to detect the end.
-- **Entity pages** (`/category/:slug`, `/actress/:slug`, `/channel/:slug`) embed the true last page in the widget (e.g. page 1 shows link to page 286). We report exact `totalPages` immediately.
-- On the **true last page** (Next disabled) we never invent a phantom page beyond it.
+- **Video listings** use a sliding window (current ± a few) that never exposes the true last
+  page. The endpoint uses the disabled-`Next` signal to detect the end, so it never invents a
+  phantom page.
+- **Entity pages** embed the true last page in the widget, so `totalPages` is exact immediately.
+- `totalResults` is an estimate derived from page count × page size (exact on the last page).
+  The source exposes no reliable total count.
 
-### Sort Options by Route
+### Sort options
 
-Not all sort values work on every route. Using an unsupported value causes the source to silently fall back to the default order.
-
-**8-value set** — for `/videos`, `/censored`, `/uncensored`, `/reducing-mosaic`:
+**8-value set** — `/videos`, `/censored`, `/uncensored`, `/reducing-mosaic`:
 
 ```
 added_today, added_week, added_month, most_liked,
 most_viewed, popular_today, popular_week, popular_month
 ```
 
-**4-value set** — for `/category/:slug`, `/actress/:slug`, `/channel/:slug`:
+**4-value set** — `/category/:slug`, `/actress/:slug`, `/channel/:slug`:
 
 ```
 popular, added_today, added_week, added_month
 ```
 
-> `popular` = all-time popular. The `popular_week` / `popular_month` values that work on video listings are **silently ignored** on entity pages.
+> The source **silently ignores** unsupported sort values, which would otherwise make one URL
+> mean two different things (and mint a second cache entry). Unknown values are now dropped
+> rather than forwarded. `popular` = all-time popular.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick start
 
-### Prerequisites
-
-- **Node.js** 18+ and **npm** 9+
-
-### 1. Clone
+Requires **Node.js 20+** and **npm 9+**.
 
 ```bash
 git clone https://github.com/zainaqdas/supjav.git
 cd supjav
-```
-
-### 2. Install & run
-
-```bash
 npm install
-npm run dev
-# → Opens at http://localhost:3000
+npm run dev        # → http://localhost:3000
 ```
 
-The API routes are included — no separate scraper server needed.
+The API routes ship with the app — no separate scraper server.
+
+### Scripts
+
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Dev server |
+| `npm run build` | Production build |
+| `npm start` | Serve the production build |
+| `npm run lint` | ESLint |
 
 ---
 
 ## 🚢 Deploy to Vercel
 
-1. Push this repo to GitHub
-2. Go to [vercel.com/new](https://vercel.com/new) and import the repo
-3. Click **Deploy**
+Import the repo at [vercel.com/new](https://vercel.com/new), or run `npx vercel`.
 
-Or via CLI:
+`vercel.json` sets `framework: nextjs`, `buildCommand: npm run build`,
+`installCommand: npm install`, `outputDirectory: .next`.
 
-```bash
-npx vercel
-```
+### Environment variables
 
-### Configuration (`vercel.json`)
+| Variable | Default | Required | Purpose |
+|---|---|---|---|
+| `NEXT_PUBLIC_SITE_URL` | `https://javhdonline.vercel.app` | No | Canonical origin used for canonical URLs, OG tags, sitemap and JSON-LD. **Set this if you deploy to a custom domain.** An unparseable value falls back to the default with a warning. |
 
-| Setting | Value |
-|---|---|
-| Framework | `nextjs` |
-| Build command | `npm run build` |
-| Output directory | `.next` |
-
-### Environment Variables
-
-| Variable | Default | Required |
-|---|---|---|
-| `NEXT_PUBLIC_API_URL` | (empty — uses internal `/api`) | No |
-
-> **No secrets required.** All data is scraped from public HTML.
-
-### Bot Protection
-
-The `middleware.ts` (Vercel Edge) blocks well-known AI crawler user-agents at the edge, returning **HTTP 403** before they reach the serverless functions or CDN. Blocked agents include:
-- `ClaudeBot` / `Claude-Web`
-- `ai_crawler`
-- `Bytespider`
-- `GPTBot` / `ChatGPT-User`
-
-These never appear in your Vercel usage metrics, protecting your free-tier quota from aggregation/bot-driven traffic.
+> **No secrets.** All data is scraped from public HTML.
 
 ---
 
 ## 🔌 Scraper API
 
-The scraper parses HTML from javtiful.com and exposes a clean JSON REST API at `/api/*`. **Base URL:** same origin as the frontend.
+JSON REST API at `/api/*`, same origin as the frontend.
 
-### API Endpoints
+### Endpoints
 
-#### Listing Endpoints
+**Listings**
 
 | Endpoint | Params | Cache | Description |
 |---|---|---|---|
-| `GET /api/main` | `?page=1` | 1h | Home dashboard videos |
-| `GET /api/trending` | `?page=1` | 1h | Trending videos |
-| `GET /api/videos` | `?page=1&sort=added_week` | 1h | **Latest JAV videos** — full 8-value sort |
-| `GET /api/censored` | `?page=1&sort=popular_week` | 1h | Censored listing |
-| `GET /api/uncensored` | `?page=1&sort=popular_week` | 1h | Uncensored listing |
-| `GET /api/reducing-mosaic` | `?page=1&sort=popular_week` | 1h | Reducing-mosaic listing |
-| `GET /api/categories` | — | 1h | All categories with counts |
-| `GET /api/category/:slug` | `?page=1&sort=popular` | 1h | Category videos (4-value sort) — returns `name` field |
-| `GET /api/actresses` | `?page=1` | 1h | All actresses with counts (313 pages) |
-| `GET /api/actress/:slug` | `?page=1&sort=popular` | 1h | Videos by actress (4-value sort) — returns `name` field |
-| `GET /api/channels` | `?page=1` | 1h | All channels with counts (13 pages) |
-| `GET /api/channel/:slug` | `?page=1&sort=popular` | 1h | Videos by channel (4-value sort) — returns `name` field |
-| `GET /api/search` | `?q=query&page=1` | 1h | Search results |
+| `GET /api/main` | `?page` | 1h | Dashboard feed |
+| `GET /api/videos` | `?page`, `?sort` | 1h | Latest videos (8-value sort) |
+| `GET /api/trending` | `?page` | 1h | Trending |
+| `GET /api/censored` | `?page`, `?sort` | 1h | Censored |
+| `GET /api/uncensored` | `?page`, `?sort` | 1h | Uncensored |
+| `GET /api/reducing-mosaic` | `?page`, `?sort` | 1h | Reducing mosaic |
+| `GET /api/categories` | — | 1h | All categories + counts |
+| `GET /api/category/:slug` | `?page`, `?sort` | 1h | Category videos + `name` |
+| `GET /api/actresses` | `?page` | 1h | Actresses + counts |
+| `GET /api/actress/:slug` | `?page`, `?sort` | 1h | Actress videos + `name` |
+| `GET /api/channels` | `?page` | 1h | Channels + counts |
+| `GET /api/channel/:slug` | `?page`, `?sort` | 1h | Channel videos + `name` |
+| `GET /api/search` | `?q` (required, ≤120 chars), `?page` | 1h | Search |
 
-#### Detail Endpoints
-
-| Endpoint | Cache | Description |
-|---|---|---|
-| `GET /api/video/:id` | 300s | Full video detail — slug auto-resolved from redirect |
-| `GET /api/video/:id/:slug` | 300s | Full video detail |
-| `GET /api/video/:id/stream` | 300s | Lightweight — stream URLs + quality options |
-| `GET /api/video/:id/comments` | 300s | Video comments (parsed from page) |
-| `GET /api/video/:id/download-link` | 300s | Download link (requires `X-CSRF-Token` header) |
-
-#### Utility Endpoints
+**Detail**
 
 | Endpoint | Cache | Description |
 |---|---|---|
-| `GET /api` | 1h | API documentation — lists all endpoints, params, cache tiers |
-| `GET /api/csrf-token` | None | Get CSRF token for authenticated POSTs |
-| `GET /api/proxy/image` | 24h | Proxies javtiful.com images to avoid CORS blocking |
+| `GET /api/video/:id` | 300s | Full detail; slug auto-resolved from the upstream 301 |
+| `GET /api/video/:id/:slug` | 300s | Full detail |
+| `GET /api/video/:id/stream` | 300s | Stream URLs + quality options |
+| `GET /api/video/:id/comments` | 300s | Comments parsed from the watch page |
+| `GET /api/video/:id/download-link` | none | Server-side download link |
 
-### Cache Tiers
+**Utility**
 
-Every endpoint sets explicit `Cache-Control` headers. Vercel's edge CDN respects `s-maxage` and serves cached responses without invoking the serverless function.
+| Endpoint | Cache | Description |
+|---|---|---|
+| `GET /api` | 1h | Machine-readable API docs |
+| `GET /api/csrf-token` | none | Upstream CSRF token |
+| `GET /api/proxy/image?url=` | 24h | Image proxy (allowlisted hosts, images only) |
 
-| Tier | `Cache-Control` | Applies to | Effect |
-|---|---|---|---|
-| `hour` | `s-maxage=3600, stale-while-revalidate=3600` | All listing endpoints, docs | **1 hour cache** — repeat visitors see HIT at the edge; no function invocation. |
-| `video` | `s-maxage=300, stale-while-revalidate=300` | `/api/video/*` detail, stream, comments, download | **5 minute cache** — pre-signed stream URLs expire in ~1h, so cache is conservative to avoid serving broken URLs. |
-| `proxy` | `s-maxage=86400, stale-while-revalidate=86400` | `/api/proxy/image` | **24 hour cache** — images don't change. |
-| `none` | `max-age=0, must-revalidate` | `/api/csrf-token` | Never cached — each request needs a fresh token. |
+### Parameter validation
 
-> **Note:** Vercel rewrites `s-maxage` in client-facing `Cache-Control` to `public` (so browsers don't cache aggressively) while honoring it at the edge. This is proven by `x-vercel-cache: HIT` on repeat requests.
+All query and path parameters are validated centrally in `src/lib/http.ts`:
 
-### Data Types
+| Param | Rule | On violation |
+|---|---|---|
+| `page` | plain integer string, clamped to 1…1000 | falls back to `1` |
+| `sort` | must be in the route's supported set | ignored |
+| `slug` | `[A-Za-z0-9._~-]{1,128}` (single path segment) | API: `400` · page: `404` |
+| `id` | `^\d{1,12}$` | API: `400` · page: `404` |
+| `q` | non-empty after trim, ≤120 chars | `400` |
 
-#### VideoResult (listing card)
+Invalid page **paths** are rejected in `src/proxy.ts` at the edge rather than via `notFound()`,
+because `notFound()` cannot set a status code once a dynamic response has begun streaming —
+it would render the 404 page under a `200`, i.e. a soft 404 that search engines index.
+
+### Cache tiers
+
+| Tier | `Cache-Control` | Applies to |
+|---|---|---|
+| `hour` | `s-maxage=3600, stale-while-revalidate=3600` | Listings, entity pages, docs |
+| `video` | `s-maxage=300, stale-while-revalidate=300` | `/api/video/*` detail & stream (pre-signed URLs expire ~1h) |
+| `none` | `no-store, max-age=0, must-revalidate` | `/api/csrf-token`, `/api/video/:id/download-link` (session-bound) |
+| proxy | `s-maxage=86400, stale-while-revalidate=86400` | `/api/proxy/image` |
+
+### Data types
+
+`VideoResult` (listing card):
 
 ```json
 {
   "id": "108365",
   "slug": "hrsm-146",
-  "title": "HRSM-146 Video Title",
+  "title": "HRSM-146 …",
   "url": "https://javtiful.com/video/108365/hrsm-146",
-  "thumbnail": "/api/proxy/image?url=...",
-  "previewVideo": "/api/proxy/image?url=...",
+  "thumbnail": "/api/proxy/image?url=…",
+  "previewVideo": "https://…jav.si/…_preview.mp4",
   "duration": "02:06:39",
   "quality": "HD",
   "views": "214.7K",
@@ -253,221 +288,113 @@ Every endpoint sets explicit `Cache-Control` headers. Vercel's edge CDN respects
 }
 ```
 
-#### VideoDetail (full)
+`VideoDetail` adds `poster`, `description`, `keywords`, `videoCode`, `releaseDate`,
+`qualityOptions`, `defaultQuality`, `streams`, `previewSources`, `thumbnails`, `actresses`,
+`tags`, `endpoints`, `related`, `comments`.
 
-```json
-{
-  // All VideoResult fields +
-  "poster": "https://...",
-  "description": "...",
-  "keywords": ["keyword1", "keyword2"],
-  "videoCode": "HRSM-146",
-  "releaseDate": "2024-03-09T12:07:53+07:00",
-  "qualityOptions": [480, 720, 1080],
-  "defaultQuality": 720,
-  "streams": [{ "url": "https://...cloudflarestorage.com/mp4", "type": "video/mp4", "quality": "720p" }],
-  "previewSources": [],
-  "thumbnails": [],
-  "actresses": [{ "slug": "actress-name", "name": "Actress Name" }],
-  "tags": [{ "type": "category", "slug": "big-tits", "name": "Big Tits" }],
-  "endpoints": {
-    "comments": "/video/108365/comments",
-    "playlist": "/video/108365/playlist",
-    "downloadLink": "/video/108365/download-link",
-    "favorite": "/video/108365/favorite",
-    "report": "/video/108365/report",
-    "react": "/video/108365/react",
-    "embed": "https://javtiful.com/embed/108365"
-  },
-  "related": [VideoResult, ...],
-  "comments": [Comment, ...]
-}
-```
+Entity responses add a `name` field parsed from the source `h1`
+(`"Hamasaki Mao JAV Videos - Latest HD Updates"` → `"Hamasaki Mao"`).
 
-> **Stream URLs** are Cloudflare R2 pre-signed URLs valid for ~1 hour. Extracted from the `#frontWatchConfig` JSON blob on the source video page.
-
-#### PaginatedResponse
-
-```json
-{
-  "source": "videos",
-  "page": 1,
-  "totalPages": 2,
-  "totalResults": 48,
-  "videos": [VideoResult, ...]
-}
-```
-
-> `totalPages` on early pages of video listings may report a low number (e.g. 2) because the source's pagination widget is windowed. Navigation works forward one page at a time. On the true last page, `totalPages` is exact.
-
-#### Entity Responses
-
-```json
-// /api/category/:slug — adds:
-{ "name": "Affair", "category": "affair" }
-
-// /api/actress/:slug — adds:
-{ "name": "Hamasaki Mao", "actress": "hamasaki-mao" }
-
-// /api/channel/:slug — adds:
-{ "name": "Attackers", "channel": "attackers" }
-```
-
-> `name` is parsed from the source page h1 (e.g. "Hamasaki Mao JAV Videos - Latest HD Updates" → "Hamasaki Mao").
-
-#### Comment
-
-```json
-{
-  "id": "comment-id",
-  "author": "Username",
-  "content": "Comment text",
-  "date": "2024-03-10T10:00:00Z",
-  "children": [Comment, ...]
-}
-```
+> Preview clips and full streams are served from the source's own CDN hosts (`…jav.si`) and are
+> **not** proxied. `lib/api.ts` additionally refuses to route video extensions through the
+> image proxy as a guard against a host change.
 
 ---
 
-## 🎨 Next.js Frontend
+## 🎨 Frontend
 
-A modern, responsive streaming website built with **Next.js 15**, **TypeScript**, and **Tailwind CSS 4**.
+**Theme:** `#0a0a0f` backgrounds, red (`#dc2626`) / blue (`#2563eb`) gradient accents,
+glassmorphism cards, staggered fade-in animations, mobile-first responsive grids.
 
-### Design
-
-- **Theme:** Deep dark backgrounds (`#0a0a0f`) with red (`#dc2626`) and blue (`#2563eb`) gradient accents
-- **Glassmorphism** cards with hover video previews, animated overlays, and fade-in-up animations
-- **Custom scrollbar**, gradient text, and micro-interactions throughout
-- **Fully responsive** — mobile hamburger nav, adaptive grids (2→3→4→5 columns)
-
-### Pages & Routes
-
-| Page | Route | Features |
-|---|---|---|
-| Home | `/` | Hero gradient, 5 sections: Latest Uploads → `/videos`, Censored, Uncensored, Trending, Explore |
-| Videos | `/videos` | 8-value SortSelector + Pagination |
-| Trending | `/trending` | Pagination only (no sort — source ignores it) |
-| Categories | `/categories` | Grid of 21 categories with counts |
-| Category | `/category/:slug` | **4-value SortSelector** (matches source), real `name` title, Pagination preserves sort |
-| Actresses | `/actresses` | Grid across 313 pages, Pagination |
-| Actress | `/actress/:slug` | **4-value SortSelector**, real `name` title, Pagination preserves sort |
-| Channels | `/channels` | Grid across 13 pages, Pagination |
-| Channel | `/channel/:slug` | **4-value SortSelector**, real `name` title, Pagination preserves sort |
-| Search | `/search?q=` | Results display (same VideoGrid) |
-| Video | `/video/:id/:slug` | Player, title, metadata, tags, actresses, description, keywords, sidebar info, screenshots, threaded comments, related videos |
-| 404 | `*` | Custom not-found with link home |
-| Error | `*` | Error boundary with reset button |
-| Loading | `*` | Skeleton shimmer |
-
-### Components
-
-| Component | Description |
+| Component | Notes |
 |---|---|
-| `VideoPlayer` | Custom HTML5 player — play/pause, progress bar, volume, quality selector, fullscreen, auto-hide controls |
-| `VideoCard` | Glassmorphism card with hover preview, HD/FHD quality badge, duration badge, gradient overlays |
-| `PreviewVideo` | `'use client'` — plays preview clip on mouse-enter |
-| `VideoGrid` | Responsive CSS grid with staggered fade-in-up (empty state: icon + "No videos found") |
-| `Navbar` | Sticky with scroll blur, mobile hamburger menu, inline search, all page links |
-| `Footer` | Links, branding, privacy/terms |
-| `Pagination` | `'use client'` — prev/next, page numbers, ellipsis, gradient active state, persists `?sort=` across pages |
-| `SectionHeader` | Gradient-text titles with optional "View All" link |
-| `SortSelector` | `'use client'` — configurable `options` prop; defaults to **8-value set**; detail pages pass **4-value set** |
+| `VideoPlayer` | Custom HTML5 player. Play/pause, seek, volume, quality, fullscreen, auto-hide controls. Seek and volume are keyboard-operable (`role="slider"`, arrows/Home/End). |
+| `VideoCard` | Glass card, hover preview, quality/duration badges. Deduplicated by video `id`. |
+| `PreviewVideo` | Client component; plays the hover preview clip. |
+| `VideoGrid` | Responsive grid; dedupes by `id` so duplicate React keys are impossible. |
+| `Navbar` | Sticky, scroll blur, mobile menu, inline search. |
+| `Pagination` | Client component; builds only the visible page window (first, last, current ±1) and clamps `totalPages` to 200. |
+| `SortSelector` | Configurable `options`; listing pages pass the 8-value set, entity pages the 4-value set. |
+| `JsonLd` | Renders a `application/ld+json` block. |
+| `Footer` / `SectionHeader` / `ContactForm` | Static/presentational. |
 
-### Vercel Usage Optimization
-
-After the initial deployment, the site exceeded Vercel's Hobby quota (100,000 edge requests/month) due to:
-1. **Uncached API routes** — every page load → scraper call (Aug 1: 186,000 requests in one day)
-2. **AI crawlers** hitting the site repeatedly
-
-Applied fixes (all live):
-- ✔ **CDN cache headers** on every `/api/*` route (1h listings / 300s video / 24h images)
-- ✔ **Bot-blocking middleware** — ClaudeBot, ai_crawler, Bytespider, GPTBot → 403 at the edge
-- ✔ **ISR** (`revalidate=3600`) on all listing pages to reduce SSR invocations
-- ✔ **Windowed-pagination detection** — no phantom requests past the real last page
-
-**Result:** Daily scraper calls dropped from ~186,000 → ~300-400 (projected). Cache hit rate climbing from 0.5% → 16.8% in the first 9 hours post-deploy.
+Structured data: `WebSite` + `SearchAction` (layout), `FAQPage` (home), `BreadcrumbList`
+(entity pages), `VideoObject` + `InteractionCounter` (video pages), plus a generated OG image.
 
 ---
 
-## 🛠 Tech Stack
+## 🔒 Security
 
-- **[Next.js 15](https://nextjs.org/)** — App Router, SSR, ISR, API routes, Edge middleware
-- **[React 19](https://react.dev/)** — Server & Client components
-- **[TypeScript 5](https://www.typescriptlang.org/)** — Type safety
-- **[Tailwind CSS 4](https://tailwindcss.com/)** — Utility-first CSS
-- **[axios](https://axios-http.com/)** — HTTP client (follows 301s, sends browser-like headers)
-- **[cheerio](https://cheerio.js.org/)** — jQuery-style HTML parsing on the server
-- **[Vercel](https://vercel.com/)** — Hosting, Edge Network, CDN caching
+- **AI-crawler blocking.** `src/proxy.ts` hard-403s ~20 known AI/scraping user agents at the
+  edge, with `X-Robots-Tag: noindex`. This exists because uncached requests each trigger a live
+  upstream scrape inside a serverless function; crawlers previously burned ~186k invocations in
+  a single day. `public/robots.txt` carries the matching `Disallow` list and stays reachable so
+  compliant crawlers can read it.
+- **Security headers** (`next.config.ts`): `X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`, `Permissions-Policy`, HSTS.
+- **Image proxy** (`/api/proxy/image`) is an allowlist proxy — `javtiful.com` and
+  `r2.cloudflarestorage.com` only, `http`/`https` only, exact-host or subdomain match (so
+  `javtiful.com.evil.example` is rejected). It additionally:
+  - refuses non-`image/*` upstream responses with `415`, so a user-uploaded `text/html` file
+    can never execute as first-party script;
+  - serves the validated image type, never the raw upstream header;
+  - sends `nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`;
+  - caps the buffered body at 10 MB (`413`), checked against `Content-Length` first and again
+    after reading.
+- **`/api/video/:id/download-link`** no longer accepts a client-supplied CSRF token. The token is
+  acquired server-side immediately before the upstream POST, so the endpoint cannot be used as a
+  generic authenticated relay, and it is `no-store` because its response is bound to a freshly
+  minted upstream session.
+- **Input validation** is centralised and bounded (see above), which also keeps the data-cache
+  key space finite.
 
 ---
 
-## 📁 Project Structure
+## 🗂 Project structure
 
 ```
 supjav/
-├── package.json              # Single package.json
-├── next.config.ts            # Next.js config
+├── package.json
+├── next.config.ts            # security headers
 ├── tsconfig.json
-├── vercel.json               # Vercel deploy config
-├── postcss.config.mjs        # Tailwind config
-├── eslint.config.mjs         # ESLint
+├── vercel.json
+├── postcss.config.mjs
+├── eslint.config.mjs
 ├── public/
+│   ├── robots.txt            # AI-crawler disallow list
+│   └── site.webmanifest
 └── src/
+    ├── proxy.ts              # edge: AI-bot block + param-shape 404s
     ├── app/
-    │   ├── globals.css       # Tailwind imports + global styles
-    │   ├── layout.tsx        # Root layout (theme, fonts, metadata)
-    │   ├── page.tsx          # Home page (5 sections)
-    │   ├── loading.tsx       # Skeleton shimmer
-    │   ├── error.tsx         # Error boundary
-    │   ├── not-found.tsx     # Custom 404
-    │   ├── videos/page.tsx   # /videos (8-value sort)
-    │   ├── trending/page.tsx # /trending (no sort)
-    │   ├── censored/page.tsx # /censored (8-value sort)
-    │   ├── uncensored/page.tsx
-    │   ├── reducing-mosaic/page.tsx
-    │   ├── categories/page.tsx
-    │   ├── actresses/page.tsx
-    │   ├── channels/page.tsx
-    │   ├── search/page.tsx
-    │   ├── category/[slug]/page.tsx  # (4-value sort + real name)
-    │   ├── actress/[slug]/page.tsx   # (4-value sort + real name)
-    │   ├── channel/[slug]/page.tsx   # (4-value sort + real name)
-    │   ├── video/[id]/[slug]/page.tsx
+    │   ├── layout.tsx        # metadata, fonts, WebSite JSON-LD
+    │   ├── page.tsx          # home (4 cached sections + FAQ + content)
+    │   ├── sitemap.ts        # static pages + entities + recent videos
+    │   ├── opengraph-image.tsx
+    │   ├── loading.tsx / error.tsx / not-found.tsx
+    │   ├── about/ contact/ privacy-policy/ terms/
+    │   ├── videos/ trending/ censored/ uncensored/ reducing-mosaic/
+    │   ├── categories/ category/[slug]/
+    │   ├── actresses/ actress/[slug]/
+    │   ├── channels/ channel/[slug]/
+    │   ├── search/
+    │   ├── video/[id]/[slug]/
     │   └── api/
-    │       ├── route.ts                     # API docs
-    │       ├── main/route.ts
-    │       ├── trending/route.ts
-    │       ├── videos/route.ts
-    │       ├── censored/route.ts
-    │       ├── uncensored/route.ts
-    │       ├── reducing-mosaic/route.ts
-    │       ├── categories/route.ts
-    │       ├── actresses/route.ts
-    │       ├── channels/route.ts
-    │       ├── category/[slug]/route.ts
-    │       ├── actress/[slug]/route.ts
-    │       ├── channel/[slug]/route.ts
-    │       ├── search/route.ts
-    │       ├── video/[id]/route.ts
-    │       ├── video/[id]/[slug]/route.ts
-    │       ├── video/[id]/stream/route.ts
-    │       ├── video/[id]/comments/route.ts
-    │       ├── video/[id]/download-link/route.ts
-    │       ├── csrf-token/route.ts
-    │       └── proxy/image/route.ts
-    ├── components/
-    │   ├── Navbar.tsx
-    │   ├── Footer.tsx
-    │   ├── VideoCard.tsx
-    │   ├── PreviewVideo.tsx
-    │   ├── VideoPlayer.tsx
-    │   ├── VideoGrid.tsx
-    │   ├── Pagination.tsx
-    │   ├── SectionHeader.tsx
-    │   └── SortSelector.tsx
+    │       ├── route.ts                    # machine-readable docs
+    │       ├── main/ trending/ videos/ censored/ uncensored/
+    │       ├── reducing-mosaic/
+    │       ├── categories/ category/[slug]/
+    │       ├── actresses/ actress/[slug]/
+    │       ├── channels/ channel/[slug]/
+    │       ├── search/
+    │       ├── video/[id]/ video/[id]/[slug]/ video/[id]/stream/
+    │       ├── video/[id]/comments/ video/[id]/download-link/
+    │       ├── csrf-token/
+    │       └── proxy/image/
+    ├── components/           # 11 UI components
     └── lib/
-        ├── api.ts           # API client (calls scraper directly)
-        ├── types.ts         # All TypeScript interfaces
-        ├── http.ts          # apiJson helper + cache header constants
-        └── scraper.ts       # Core scraping engine (cheerio + axios)
+        ├── api.ts            # cached scraper client (unstable_cache)
+        ├── scraper.ts        # cheerio parsing engine
+        ├── http.ts           # apiJson + cache tiers + param validation
+        ├── site.ts           # SITE_URL / SITE_NAME
+        └── types.ts          # shared interfaces
 ```
